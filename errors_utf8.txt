@@ -1,0 +1,10 @@
+﻿components/AssetsModule.tsx(613,23): error TS2657: JSX expressions must have one parent element.
+components/AssetsModule.tsx(620,23): error TS1005: ')' expected.
+components/AssetsModule.tsx(622,19): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/AssetsModule.tsx(622,21): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/AssetsModule.tsx(627,9): error TS1005: ')' expected.
+components/AssetsModule.tsx(628,9): error TS1005: ';' expected.
+components/AssetsModule.tsx(697,7): error TS2657: JSX expressions must have one parent element.
+components/AssetsModule.tsx(916,5): error TS1128: Declaration or statement expected.
+components/AssetsModule.tsx(917,3): error TS1109: Expression expected.
+components/AssetsModule.tsx(918,1): error TS1128: Declaration or statement expected.

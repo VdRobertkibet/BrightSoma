@@ -1,0 +1,2 @@
+﻿components/AssetsModule.tsx(14,3): error TS2300: Duplicate identifier 'MapPin'.
+components/AssetsModule.tsx(43,71): error TS2300: Duplicate identifier 'MapPin'.

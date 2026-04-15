@@ -1,0 +1,6 @@
+components/AttendanceModule.tsx(267,6): error TS17008: JSX element 'div' has no corresponding closing tag.
+components/AttendanceModule.tsx(535,7): error TS17015: Expected corresponding closing tag for JSX fragment.
+components/AttendanceModule.tsx(535,10): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?
+components/AttendanceModule.tsx(537,1): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/AttendanceModule.tsx(540,1): error TS1005: '</' expected.
+components/LandingPage.tsx(1060,10): error TS17008: JSX element 'div' has no corresponding closing tag.

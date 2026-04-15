@@ -1,0 +1,12 @@
+﻿App.tsx(316,31): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+components/LandingPage.tsx(77,29): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+hooks/useAuth.ts(39,27): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/firebase.ts(7,23): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/firebase.ts(8,27): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/firebase.ts(9,26): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/firebase.ts(10,30): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/firebase.ts(11,34): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/firebase.ts(12,22): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+src/firebase.ts(13,30): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+utils/envValidator.ts(31,27): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+utils/envValidator.ts(48,29): error TS2339: Property 'env' does not exist on type 'ImportMeta'.

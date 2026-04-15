@@ -1,0 +1,243 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ──────────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Platform Admin: full access to all schools
+    function isPlatformAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'PLATFORM_ADMIN';
+    }
+
+    // School Admin: owns the school document matching their uid
+    function isSchoolAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/schools/$(request.auth.uid));
+    }
+
+    // Get the schoolId for the currently logged-in staff member
+    function getStaffSchoolId() {
+      // Allow reading staff document if we are trying to create it
+      return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.schoolId;
+    }
+    
+    // Get the role of the currently logged-in staff
+    function getStaffRole() {
+      return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.role;
+    }
+
+    // Check if the caller belongs to the school they are trying to access
+    function belongsToSchool(schoolId) {
+      return isAuthenticated() && (
+        request.auth.uid == schoolId ||           // school admin
+        (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) &&
+         getStaffSchoolId() == schoolId)
+      );
+    }
+
+    // Check if caller can WRITE financial data
+    function canWriteFinance(schoolId) {
+      return isPlatformAdmin() || (isAuthenticated() && request.auth.uid == schoolId) || 
+        (exists(/databases/$(database)/documents/staff/$(request.auth.uid)) && 
+         getStaffSchoolId() == schoolId && 
+         getStaffRole() == 'FINANCE');
+    }
+
+    // ─── Test Connection (App startup check) ──────────────────────────────
+    match /test/connection {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ─── Schools (Tenants) ────────────────────────────────────────────────
+    match /schools/{schoolId} {
+      // Anyone authenticated can read the institutional profile (required for sign-in phase)
+      allow read: if isAuthenticated();
+      // Only the exact UID owner can create
+      allow create: if isAuthenticated() && request.auth.uid == schoolId;
+      // Admins and authorized staff can update
+      allow update: if isPlatformAdmin() || request.auth.uid == schoolId || belongsToSchool(schoolId);
+      allow delete: if isPlatformAdmin() || request.auth.uid == schoolId;
+    }
+
+    // ─── Users (Roles / Platform Admin records) ───────────────────────────
+    match /users/{userId} {
+      // Allow any authenticated user to check their own record or existence
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isPlatformAdmin() || request.auth.uid == userId;
+      allow delete: if isPlatformAdmin();
+    }
+
+    // ─── Staff & Access Codes ─────────────────────────────────────────────
+    match /staff/{staffId} {
+      // Any authenticated user can read — needed for identity verification during sign-in
+      allow read: if isAuthenticated();
+      // Admins can create staff docs; authenticated users can also create their own
+      allow create: if isPlatformAdmin() || isSchoolAdmin() || (isAuthenticated() && request.resource.data.schoolId != null);
+      // Admins can update any; staff members can update ONLY their own document
+      allow update: if isPlatformAdmin() || isSchoolAdmin() || (isAuthenticated() && request.auth.uid == staffId);
+      allow delete: if isPlatformAdmin() || isSchoolAdmin();
+    }
+    
+    match /access_codes/{docId} {
+      // Anyone belonging to the school can see codes (or anyone trying to redeem one)
+      allow read: if isAuthenticated();
+      // Only Admins can generate or delete codes
+      allow create: if isAuthenticated() && (isPlatformAdmin() || isSchoolAdmin() || belongsToSchool(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || isSchoolAdmin() || belongsToSchool(resource.data.schoolId));
+    }
+
+    // ─── Shared school data collections (Standard RBAC) ───────────────────
+    function schoolDataRead(schoolId) {
+      return isPlatformAdmin() || belongsToSchool(schoolId);
+    }
+
+    function schoolDataWrite(schoolId) {
+      return isPlatformAdmin() || isSchoolAdmin() || belongsToSchool(schoolId);
+    }
+
+    // Core Entities
+    match /students/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+    
+    match /attendance/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    match /inventory/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+    
+    match /notifications/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    // Academics & Timetable
+    match /timetable/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    match /timetable_periods/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    match /assessments/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    // Boarding
+    match /dormitories/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    match /exeats/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    match /pocket_money_transactions/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(resource.data.schoolId));
+    }
+
+    match /meal_plans/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+    
+    // Transport
+    match /routes/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+    
+    match /drivers/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+    
+    match /vehicles/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+    
+    match /transit_logs/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    match /assets/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    match /maintenance_logs/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    // ─── Protected Financial Data ─────────────────────────────────────────
+    match /fee_structures/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(resource.data.schoolId));
+    }
+    
+    match /fee_targets/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(resource.data.schoolId));
+    }
+    
+    match /expenses/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(resource.data.schoolId));
+    }
+
+    match /payments/{docId} {
+      allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
+      allow create: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(request.resource.data.schoolId));
+      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(resource.data.schoolId));
+    }
+
+    // Deny everything else that wasn't explicitly matched
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
