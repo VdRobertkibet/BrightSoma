@@ -51,9 +51,11 @@ import { onAuthStateChanged } from 'firebase/auth';
 interface StudentsModuleProps {
   setActiveTab: (tab: string) => void;
   initialTab?: 'directory' | 'classrooms';
+  role?: string | null;
+  isDarkMode?: boolean;
 }
 
-const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTab }) => {
+const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTab, role, isDarkMode }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);

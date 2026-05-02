@@ -1,63 +1,140 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Users, GraduationCap, Wallet, Activity, ArrowLeft, School as SchoolIcon } from 'lucide-react';
+import { 
+  ShieldCheck, Users, GraduationCap, Wallet, Activity, 
+  ArrowLeft, School as SchoolIcon, ChevronRight, Sparkles 
+} from 'lucide-react';
 import { motion } from 'motion/react';
 
 const roles = [
-  { role: 'ADMIN', title: 'School Director', description: 'Institutional Oversight And Strategy.', icon: <ShieldCheck size={24} strokeWidth={1.5} />, color: 'text-orange-600 bg-orange-50' },
-  { role: 'TEACHER', title: 'Teacher', description: 'Cbc Assessments And Learner Growth.', icon: <Users size={24} strokeWidth={1.5} />, color: 'text-blue-600 bg-blue-50' },
-  { role: 'PRINCIPAL', title: 'Principal', description: 'Academic Health And Staff Performance.', icon: <GraduationCap size={24} strokeWidth={1.5} />, color: 'text-emerald-600 bg-emerald-50' },
-  { role: 'FINANCE', title: 'Finance Officer', description: 'Fee Collection And Etims Compliance.', icon: <Wallet size={24} strokeWidth={1.5} />, color: 'text-violet-600 bg-violet-50' },
-  { role: 'PLATFORM_ADMIN', title: 'System Owner', description: 'Global Platform Control.', icon: <Activity size={24} strokeWidth={1.5} />, color: 'text-slate-600 bg-slate-50' },
+  { 
+    role: 'ADMIN', 
+    title: 'School director', 
+    description: 'Strategic institutional oversight.', 
+    icon: <ShieldCheck size={32} strokeWidth={1.5} />, 
+    color: 'from-orange-500 via-orange-600 to-amber-600',
+    lightColor: 'bg-orange-500/10'
+  },
+  { 
+    role: 'TEACHER', 
+    title: 'Teacher portal', 
+    description: 'CBC assessments and learner growth.', 
+    icon: <Users size={32} strokeWidth={1.5} />, 
+    color: 'from-orange-400 via-orange-500 to-orange-600',
+    lightColor: 'bg-orange-500/5'
+  },
+  { 
+    role: 'PRINCIPAL', 
+    title: 'Principal', 
+    description: 'Academic health and performance.', 
+    icon: <GraduationCap size={32} strokeWidth={1.5} />, 
+    color: 'from-emerald-500 via-teal-600 to-emerald-700',
+    lightColor: 'bg-emerald-500/10'
+  },
+  { 
+    role: 'FINANCE', 
+    title: 'Finance hub', 
+    description: 'Fees and eTIMS compliance.', 
+    icon: <Wallet size={32} strokeWidth={1.5} />, 
+    color: 'from-violet-500 via-purple-600 to-violet-700',
+    lightColor: 'bg-violet-500/10'
+  },
+  { 
+    role: 'PLATFORM_ADMIN', 
+    title: 'System owner', 
+    description: 'Global infrastructure control.', 
+    icon: <Activity size={32} strokeWidth={1.5} />, 
+    color: 'from-slate-700 via-slate-800 to-slate-900',
+    lightColor: 'bg-slate-500/10'
+  },
 ];
 
 const SignInPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-orange-100 flex flex-col">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-orange-100 flex flex-col relative overflow-hidden">
+      {/* ─── SUBTLE BACKGROUND DECOR ──────────────────────────── */}
+      <div className="absolute top-0 left-0 w-full h-full z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] bg-orange-500/5 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-5%] w-[30%] h-[30%] bg-slate-500/5 blur-[120px] rounded-full" />
+      </div>
+
       {/* ─── HEADER ─────────────────────────────────────────── */}
-      <header className="h-20 px-6 flex items-center justify-between border-b border-slate-50">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-10 h-10 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/10">
-            <SchoolIcon size={22} className="text-white" strokeWidth={1.5} />
+      <header className="h-20 px-8 md:px-16 flex items-center justify-between z-10 relative border-b border-slate-100 bg-white/50 backdrop-blur-md">
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex items-center gap-3 cursor-pointer group" 
+          onClick={() => navigate('/')}
+        >
+          <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-all">
+            <SchoolIcon size={22} className="text-white" strokeWidth={2} />
           </div>
-          <span className="text-xl font-medium tracking-tight">Bright<span className="text-orange-500">Soma</span></span>
-        </div>
-        <button onClick={() => navigate('/')} className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest">
-          <ArrowLeft size={16} /> Back To Home
-        </button>
+          <div className="hidden sm:block">
+            <span className="text-xl font-bold tracking-tight text-slate-900">BrightSoma</span>
+            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-orange-500 block -mt-1">Secured Gateway</span>
+          </div>
+        </motion.div>
+        
+        <motion.button 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          onClick={() => navigate('/')} 
+          className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-[10px] font-bold text-slate-500 hover:text-orange-600 hover:border-orange-200 transition-all uppercase tracking-wider flex items-center gap-2"
+        >
+          <ArrowLeft size={14} /> Back Home
+        </motion.button>
       </header>
 
-      {/* ─── CONTENT ────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-50/30">
+      {/* ─── MAIN ────────────────────────────────────────────── */}
+      <main className="flex-1 flex flex-col items-center justify-center p-8 z-10 relative">
         <div className="max-w-6xl w-full">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="mb-20">
-            <h1 className="text-5xl md:text-7xl font-medium tracking-tight mb-6 text-slate-900 leading-[0.9]">Select Portal.</h1>
-            <p className="text-xl text-slate-500 font-medium max-w-2xl leading-relaxed">Access Your Specific Dashboard With Institutional-Grade Security.</p>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="mb-16 text-center"
+          >
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-600 text-[10px] font-bold mb-6">
+              <Sparkles size={14} /> Institutional Gateways
+            </div>
+            <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-4 text-slate-900">
+              Access your <span className="text-orange-500">workspace.</span>
+            </h1>
+            <p className="text-base text-slate-500 font-medium max-w-xl mx-auto">
+              Secure institutional access with real-time data synchronization.
+            </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-20">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {roles.map((item, i) => (
               <motion.button
                 key={item.role}
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1, duration: 0.6 }}
+                transition={{ delay: i * 0.05 }}
                 onClick={() => navigate(`/login/${item.role.toLowerCase()}`)}
-                className="group relative p-10 rounded-[3.5rem] bg-white border border-slate-100 transition-all hover:border-orange-500/30 hover:shadow-[0_20px_50px_-15px_rgba(249,115,22,0.1)] text-left flex flex-col items-start"
+                className="group relative p-8 rounded-3xl bg-white border border-slate-100 hover:border-orange-500 hover:shadow-xl hover:shadow-orange-500/5 transition-all text-left flex flex-col items-start"
               >
-                <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 ${item.color}`}>
-                  {item.icon}
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-8 ${item.lightColor} border border-orange-100/50 group-hover:scale-105 transition-transform`}>
+                   <div className="text-orange-600">
+                     {item.icon}
+                   </div>
                 </div>
-                <h3 className="text-2xl font-medium mb-3 tracking-tight text-slate-900">{item.title}</h3>
-                <p className="text-xs text-slate-400 font-medium leading-relaxed">{item.description}</p>
+                
+                <h3 className="text-lg font-bold mb-2 tracking-tight text-slate-900 group-hover:text-orange-600 transition-colors">{item.title}</h3>
+                <p className="text-[11px] text-slate-500 font-medium leading-relaxed mb-8">{item.description}</p>
+                
+                <div className="mt-auto flex items-center gap-2 text-[10px] font-bold text-slate-400 group-hover:text-orange-600 transition-colors">
+                  Open portal <ChevronRight size={14} />
+                </div>
               </motion.button>
             ))}
           </div>
 
-          <div className="text-center pt-10 border-t border-slate-100">
-             <p className="text-[10px] font-medium text-slate-300 uppercase tracking-[0.4em]">© 2026 BrightSoma Technologies Ltd. SECURED ACCESS.</p>
+          <div className="mt-20 text-center">
+             <div className="h-px w-24 bg-slate-200 mx-auto mb-4" />
+             <p className="text-[9px] font-bold text-slate-400">BrightSoma Unified Security architecture v2.4.0</p>
           </div>
         </div>
       </main>

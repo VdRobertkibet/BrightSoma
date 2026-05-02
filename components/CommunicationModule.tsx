@@ -32,7 +32,9 @@ const CommunicationModule: React.FC<CommunicationModuleProps> = ({ role }) => {
   const [newTemplate, setNewTemplate] = useState({ title: '', body: '' });
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [currentUserData, setCurrentUserData] = useState<any>(null);
+  const [currentSchool, setCurrentSchool] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(true); // Default to true for showcase
 
   const isPlatformAdmin = role === 'PLATFORM_ADMIN' || role === 'SUPER_ADMIN';
 
@@ -72,6 +74,12 @@ const CommunicationModule: React.FC<CommunicationModuleProps> = ({ role }) => {
         const staffDocSnap = await getDoc(staffDocRef);
         if (staffDocSnap.exists()) {
           schoolId = staffDocSnap.data().schoolId;
+        }
+
+        // Fetch School Name for Prefix
+        const schoolDoc = await getDoc(doc(db, 'schools', schoolId));
+        if (schoolDoc.exists()) {
+          setCurrentSchool(schoolDoc.data());
         }
 
         cleanups.push(onSnapshot(query(collection(db, 'sms_logs'), where('schoolId', '==', schoolId), orderBy('timestamp', 'desc'), limit(50)), (snapshot) => setHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))));
@@ -127,26 +135,47 @@ const CommunicationModule: React.FC<CommunicationModuleProps> = ({ role }) => {
     }
 
     setIsSending(true);
-    const loadingToast = toast.loading(`Sending to ${phoneNumbers.length} recipients...`);
+    const loadingToast = toast.loading(isDemoMode ? `Simulating broadcast to ${phoneNumbers.length} recipients...` : `Sending to ${phoneNumbers.length} recipients...`);
 
     try {
-      const result = await sendRealSMS(phoneNumbers.join(','), message);
+      const prefix = isPlatformAdmin ? '[BrightSoma]' : `[${currentSchool?.name || 'School'}]`;
+      const finalMessage = `${prefix} ${message}`;
+      
+      let result;
+      if (isDemoMode) {
+        // --- SIMULATOR LOGIC ---
+        await new Promise(resolve => setTimeout(resolve, 2500)); // Mimic network delay
+        result = { success: true, sentCount: phoneNumbers.length, cost: phoneNumbers.length * 0.8 };
+      } else {
+        result = await sendRealSMS(phoneNumbers.join(','), finalMessage);
+      }
       
       if (result.success) {
-        toast.success(`Broadcasting complete! Sent to ${result.sentCount} recipients.`, { icon: '🚀' });
+        toast.success(isDemoMode ? `Simulation complete! (Demo Mode)` : `Broadcasting complete! Sent to ${result.sentCount} recipients.`, { 
+          icon: isDemoMode ? '🧪' : '🚀',
+          style: { background: '#0b3d2e', color: '#fff' }
+        });
         
         const user = auth.currentUser;
-        if (user) {
-          await addDoc(collection(db, 'sms_logs'), {
-            schoolId: isPlatformAdmin ? 'BRIGHTSOMA_SAAS' : user.uid,
+        if (user || isDemoMode) {
+          const logEntry = {
+            schoolId: isPlatformAdmin ? 'BRIGHTSOMA_SAAS' : (user?.uid || 'DEMO_SCHOOL'),
             recipients: recipient,
             count: result.sentCount,
-            message: message,
+            message: finalMessage,
             status: 'Success',
             cost: result.cost,
-            timestamp: serverTimestamp(),
-            type: isPlatformAdmin ? 'Global_SaaS' : 'Bulk'
-          });
+            timestamp: serverTimestamp() || new Date(),
+            type: isPlatformAdmin ? 'Global_SaaS' : 'Bulk',
+            from: 'BRIGHTSOMA',
+            isDemo: isDemoMode
+          };
+
+          if (isDemoMode) {
+            setHistory([ { id: 'demo-'+Date.now(), ...logEntry }, ...history ]);
+          } else {
+            await addDoc(collection(db, 'sms_logs'), logEntry);
+          }
         }
         setMessage('');
       }
@@ -209,32 +238,45 @@ const CommunicationModule: React.FC<CommunicationModuleProps> = ({ role }) => {
 
   const renderOverview = () => (
     <div className="space-y-12 animate-in fade-in duration-1000">
-      <div className="bg-[#334155] rounded-[2.5rem] p-12 text-left shadow-xl border border-slate-700 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 p-12 opacity-5 translate-x-1/4 translate-y-1/4 group-hover:translate-x-0 transition-transform duration-1000">
-           <Send size={300} />
+      <div className="bg-[#0b3d2e] rounded-[3rem] p-12 text-left shadow-2xl border border-emerald-800/50 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-12 opacity-10 translate-x-1/4 translate-y-1/4 group-hover:translate-x-0 transition-transform duration-1000">
+           <Send size={300} className="text-emerald-400" />
         </div>
+        
+        {/* Demo Mode Badge */}
+        <div className="absolute top-8 right-8">
+           <button 
+            onClick={() => setIsDemoMode(!isDemoMode)}
+            className={`px-4 py-2 rounded-full text-[10px] font-bold tracking-widest transition-all flex items-center gap-2 ${isDemoMode ? 'bg-amber-500 text-white animate-pulse' : 'bg-white/10 text-white/50 border border-white/10'}`}
+           >
+             <div className={`w-2 h-2 rounded-full ${isDemoMode ? 'bg-white' : 'bg-slate-500'}`} />
+             {isDemoMode ? 'SIMULATOR ACTIVE' : 'LIVE GATEWAY'}
+           </button>
+        </div>
+
         <div className="relative z-10 max-w-2xl">
-          <h1 className="text-2xl font-normal text-white tracking-tight flex items-center gap-2 mb-2">
-            {isPlatformAdmin ? 'Platform Partner Outreach' : 'Communication & Messaging'}
+          <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3 mb-3">
+            {isPlatformAdmin ? 'Platform Outreach' : 'Smart Messaging'}
+            <Zap size={24} className="text-amber-400" />
           </h1>
-          <p className="text-[#94a3b8] text-sm font-medium mb-8">
+          <p className="text-emerald-100/60 text-base font-medium mb-10 leading-relaxed">
              {isPlatformAdmin 
-               ? 'Send global updates to partners and manage support inquiries.' 
-               : 'Send instant SMS blasts to parents and teachers effortlessly.'}
+               ? 'Broadcast global updates to your institutional partners with millisecond precision.' 
+               : 'Reach parents and staff instantly via Kenya\'s most reliable Bulk SMS gateway.'}
           </p>
           <div className="flex flex-wrap gap-4">
             <button 
               onClick={() => setActiveTab('Compose')}
-              className="bg-orange-600 text-white px-8 py-4 rounded-2xl font-normal text-sm shadow-xl shadow-orange-950/20 hover:bg-orange-700 transition-all active:scale-95"
+              className="bg-white text-[#0b3d2e] px-10 py-4 rounded-2xl font-bold text-sm shadow-xl hover:bg-emerald-50 transition-all active:scale-95 flex items-center gap-2"
             >
-              Compose {isPlatformAdmin ? 'Global' : 'New'} Message
+              <Send size={18} /> Compose {isPlatformAdmin ? 'Global' : 'New'} Message
             </button>
             {isPlatformAdmin && (
               <button 
                 onClick={() => setActiveTab('Support Inbox')}
-                className="bg-white/10 text-white border border-white/20 px-8 py-4 rounded-2xl font-normal text-sm backdrop-blur-sm hover:bg-white/20 transition-all active:scale-95 flex items-center gap-2"
+                className="bg-white/10 text-white border border-white/20 px-8 py-4 rounded-2xl font-bold text-sm backdrop-blur-md hover:bg-white/20 transition-all active:scale-95 flex items-center gap-2"
               >
-                <MessageSquare size={18} /> View Support Requests
+                <MessageSquare size={18} /> Support Desk
               </button>
             )}
           </div>
@@ -244,29 +286,29 @@ const CommunicationModule: React.FC<CommunicationModuleProps> = ({ role }) => {
       {/* Platform Vision Stats (Admin only) */}
       {isPlatformAdmin && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-           <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 text-left">
+           <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 text-left shadow-sm">
               <div className="flex justify-between items-start mb-6">
-                 <div className="p-4 bg-orange-50 dark:bg-orange-950/30 text-orange-600 rounded-2xl"><Send size={24} /></div>
-                 <span className="text-[10px] font-normal text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full  tracking-widest">Broadcasts</span>
+                 <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl"><Send size={24} /></div>
+                 <span className="text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full  tracking-widest uppercase">Broadcasts</span>
               </div>
-              <h4 className="text-xl font-normal dark:text-white mb-1">Global Scale</h4>
-              <p className="text-sm text-slate-500 font-medium">Reach {schools.length} Directors instantly via bulk SMS routes.</p>
+              <h4 className="text-xl font-bold dark:text-white mb-1 tracking-tight">Global Scale</h4>
+              <p className="text-sm text-slate-500 font-medium leading-relaxed">Reach {schools.length} Directors instantly via high-priority bulk routes.</p>
            </div>
-           <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 text-left">
+           <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 text-left shadow-sm">
               <div className="flex justify-between items-start mb-6">
-                 <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 rounded-2xl"><MessageSquare size={24} /></div>
-                 <span className="text-[10px] font-normal text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full  tracking-widest">Inquiries</span>
+                 <div className="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-2xl"><MessageSquare size={24} /></div>
+                 <span className="text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full  tracking-widest uppercase">Inquiries</span>
               </div>
-              <h4 className="text-xl font-normal dark:text-white mb-1">Support Quality</h4>
-              <p className="text-sm text-slate-500 font-medium">{supportInquiries.filter(i => i.status === 'Pending').length} Pending help requests needing attention.</p>
+              <h4 className="text-xl font-bold dark:text-white mb-1 tracking-tight">Support Quality</h4>
+              <p className="text-sm text-slate-500 font-medium leading-relaxed">{supportInquiries.filter(i => i.status === 'Pending').length} Pending help requests needing immediate attention.</p>
            </div>
-           <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 text-left">
+           <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 text-left shadow-sm">
               <div className="flex justify-between items-start mb-6">
-                 <div className="p-4 bg-sky-50 dark:bg-sky-950/30 text-sky-600 rounded-2xl"><Zap size={24} /></div>
-                 <span className="text-[10px] font-normal text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full  tracking-widest">Updates</span>
+                 <div className="p-4 bg-sky-50 dark:bg-sky-900/20 text-sky-600 rounded-2xl"><Zap size={24} /></div>
+                 <span className="text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-full  tracking-widest uppercase">Updates</span>
               </div>
-              <h4 className="text-xl font-normal dark:text-white mb-1">Feature Velocity</h4>
-              <p className="text-sm text-slate-500 font-medium">Inform partners about upcoming Edu-Fintech transitions.</p>
+              <h4 className="text-xl font-bold dark:text-white mb-1 tracking-tight">System Velocity</h4>
+              <p className="text-sm text-slate-500 font-medium leading-relaxed">Push feature updates to partners and drive Edu-Fintech adoption.</p>
            </div>
         </div>
       )}
@@ -384,10 +426,10 @@ const CommunicationModule: React.FC<CommunicationModuleProps> = ({ role }) => {
         <button 
           onClick={handleSendBulk}
           disabled={isSending || !message}
-          className="w-full bg-orange-600 hover:bg-orange-700 text-white font-normal py-4 rounded-2xl shadow-lg shadow-orange-500/20 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 text-sm tracking-tight"
+          className={`w-full font-bold py-5 rounded-2xl shadow-2xl transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 text-sm tracking-tight ${isDemoMode ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-900/20' : 'bg-[#0b3d2e] hover:bg-emerald-900 text-white shadow-emerald-950/20'}`}
         >
-          {isSending ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-          {isSending ? 'Sending Broadcast...' : isPlatformAdmin ? 'Broadcast Global Update' : `Send Blast to ${recipient}`}
+          {isSending ? <Loader2 className="animate-spin" size={20} /> : (isDemoMode ? <Zap size={20} /> : <Send size={20} />)}
+          {isSending ? (isDemoMode ? 'Simulating Broadcast...' : 'Sending Broadcast...') : (isDemoMode ? `Run Demo Broadcast to ${recipient}` : `Send Blast to ${recipient}`)}
         </button>
       </div>
     </div>
@@ -406,13 +448,13 @@ const CommunicationModule: React.FC<CommunicationModuleProps> = ({ role }) => {
               <button
                 key={tab.name}
                 onClick={() => setActiveTab(tab.name as any)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-normal whitespace-nowrap transition-all ${
+                className={`flex items-center gap-2 px-8 py-4 rounded-full text-sm font-bold whitespace-nowrap transition-all ${
                   isActive 
-                    ? 'bg-orange-600 text-white shadow-xl shadow-orange-500/10' 
+                    ? 'bg-[#0b3d2e] text-white shadow-2xl shadow-emerald-900/30 ring-4 ring-emerald-500/10' 
                     : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
                 }`}
               >
-                <Icon size={16} />
+                <Icon size={18} className={isActive ? 'text-emerald-400' : 'text-slate-400'} />
                 {tab.name}
               </button>
             )

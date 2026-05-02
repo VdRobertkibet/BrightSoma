@@ -90,6 +90,7 @@ exports.sendSMS = functions.https.onCall(async (data, context) => {
       username: AT_USERNAME,
       to: recipients.join(','),
       message: message,
+      from: 'BRIGHTSOMA', // Universal Sender ID for cost-saving
     });
 
     const response = await fetch('https://api.africastalking.com/version1/messaging', {

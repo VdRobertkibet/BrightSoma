@@ -130,6 +130,7 @@ export const resolveUserRole = async (
     if (userSnap.exists()) {
       const userData = userSnap.data() as FirestoreUserDoc;
       const rawRole = (userData.role || '').toUpperCase();
+      console.log(`[AuthService] Tier 1: Master Profile found. Role: ${rawRole}`);
 
       if (!rawRole) {
         console.warn(`[AuthService] User document exists for ${uid} but has no role. Continuing to school/staff checks...`);
@@ -138,20 +139,20 @@ export const resolveUserRole = async (
         return buildPlatformAdminProfile();
       }
 
-      // Non-admin user record in `users` — stop here (skips school/staff checks)
-      if (rawRole) {
-        console.log(`[AuthService] RESOLVED → ${rawRole} (Master Profile — custom role)`);
-        return {
-          role: userData.role,
-          schoolId: userData.schoolId || null,
-          edition: 'starter',
-          enabledModules: [...DEFAULT_ADMIN_MODULES],
-          isPlatformAdmin: false,
-          onboardingCompleted: userData.onboardingCompleted ?? false,
-        };
-      }
+      // 🛡️ Normalize custom role
+      const normalizedRole = rawRole as UserRole;
+      console.log(`[AuthService] RESOLVED → ${normalizedRole} (Master Profile — custom role)`);
+      return {
+        role: normalizedRole,
+        schoolId: userData.schoolId || null,
+        edition: 'starter',
+        enabledModules: [...DEFAULT_ADMIN_MODULES],
+        isPlatformAdmin: false,
+        onboardingCompleted: userData.onboardingCompleted ?? false,
+      };
     }
 
+    console.log(`[AuthService] Tier 1: No master profile. Checking Tier 2: School Ownership...`);
     // ── Tier 2: Institution Ownership (schools collection) ───────────────────
     const schoolSnap = await getDoc(doc(db, 'schools', uid));
 
@@ -160,6 +161,8 @@ export const resolveUserRole = async (
       console.log(`[AuthService] RESOLVED → ADMIN (School: ${schoolData.name})`);
       return buildSchoolAdminProfile(uid, schoolData);
     }
+
+    console.log(`[AuthService] Tier 2: No school profile. Checking Tier 3: Staff Assignment...`);
 
 
     // ── Tier 3: Staff Assignment (staff collection) ──────────────────────────
@@ -183,12 +186,20 @@ export const resolveUserRole = async (
     }
 
     if (staffData) {
+      // 🛡️ Normalize role to uppercase
+      staffData.role = (staffData.role || '').toUpperCase() as UserRole;
+      console.log(`[AuthService] Tier 3: Staff found. Role: ${staffData.role}`);
+
       // Resolve the parent school for edition/module context
       let schoolData: FirestoreSchoolDoc | null = null;
       if (staffData.schoolId) {
+        console.log(`[AuthService] Resolving parent school for staff: ${staffData.schoolId}`);
         const parentSnap = await getDoc(doc(db, 'schools', staffData.schoolId));
         if (parentSnap.exists()) {
           schoolData = parentSnap.data() as FirestoreSchoolDoc;
+          console.log(`[AuthService] Parent school resolved: ${schoolData.name}`);
+        } else {
+          console.warn(`[AuthService] Parent school NOT found for staff: ${staffData.schoolId}`);
         }
       }
 
@@ -196,6 +207,7 @@ export const resolveUserRole = async (
     }
 
     // ── Tier 4: No Records Found ─────────────────────────────────────────────
+    console.log(`[AuthService] Tier 3: No staff profile found.`);
     // Retry if the account was created recently (Firestore propagation delay)
     const createdAt = creationTime ? new Date(creationTime).getTime() : 0;
     const isNewAccount = Date.now() - createdAt < NEW_ACCOUNT_WINDOW_MS;

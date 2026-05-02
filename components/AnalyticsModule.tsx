@@ -99,9 +99,10 @@ const AnalyticsModule: React.FC<AnalyticsModuleProps> = ({ academicPeriod, role,
   }, [academicPeriod, isPlatformAdmin]);
 
   // ─── PLATFORM ADMIN DASHBOARD ───────────────────────────────────────────────
-  if (isPlatformAdmin) {
-    const [adminTab, setAdminTab] = React.useState('overview');
+    const [paAdminTab, setPaAdminTab] = React.useState('overview');
     const [activeInsight, setActiveInsight] = React.useState('alerts');
+
+    if (isPlatformAdmin) {
 
     const REVENUE_DATA = [
       { month: 'Jan', arr: 220000, mrr: 18333 },
@@ -192,8 +193,8 @@ const AnalyticsModule: React.FC<AnalyticsModuleProps> = ({ academicPeriod, role,
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => setAdminTab(tab.id)}
-              className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${adminTab === tab.id ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              onClick={() => setPaAdminTab(tab.id)}
+              className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${paAdminTab === tab.id ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
             >
               {tab.label}
             </button>

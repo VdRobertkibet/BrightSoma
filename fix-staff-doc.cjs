@@ -54,19 +54,19 @@ const teachingFieldsBlock = `
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                       <div className="col-span-1 md:col-span-2">
                         <h5 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-3">
-                          <BookOpen size={16} className="text-orange-500" /> Principal Teaching Allocation
+                          <BookOpen size={16} className="text-blue-500" /> Principal Teaching Allocation
                         </h5>
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Stream</label>
-                        <select value={generalStaffForm.stream} onChange={e => setGeneralStaffForm(p => ({...p, stream: e.target.value}))} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
+                        <select value={generalStaffForm.stream} onChange={e => setGeneralStaffForm(p => ({...p, stream: e.target.value}))} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer">
                           <option value="">— No stream —</option>
                           {availableStreams.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Class teacher of</label>
-                        <select value={generalStaffForm.classTeacherOf} onChange={e => setGeneralStaffForm(p => ({...p, classTeacherOf: e.target.value as string}))} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
+                        <select value={generalStaffForm.classTeacherOf} onChange={e => setGeneralStaffForm(p => ({...p, classTeacherOf: e.target.value as string}))} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer">
                           <option value="">— Not a class teacher —</option>
                           {availableGrades.map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
@@ -88,7 +88,7 @@ const teachingFieldsBlock = `
                                     ? p.teachingGrades.filter(x => x !== g)
                                     : [...p.teachingGrades, g]
                                 }))}
-                                className={\`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all \${selected ? 'bg-orange-600 text-white border-orange-600' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'} \`}
+                                className={\`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all \${selected ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'} \`}
                               >
                                 {g}
                               </button>
@@ -116,7 +116,7 @@ const teachingFieldsBlock = `
                                             return { ...p, teachingSubjects: { ...p.teachingSubjects, [grade]: updated } };
                                           });
                                       }}
-                                      className={\`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all \${isSelected ? 'bg-orange-600 text-white border-orange-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'} \`}
+                                      className={\`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all \${isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'} \`}
                                     >
                                       {subject}
                                     </button>
@@ -132,8 +132,8 @@ const teachingFieldsBlock = `
 `;
 
 content = content.replace(
-  `                    <div className="space-y-1.5">\n                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Duration of Contract</label>\n                      <input type="text" value={generalStaffForm.durationOfContract} onChange={e => setGeneralStaffForm(p => ({...p, durationOfContract: e.target.value}))} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. 1 Year, N/A" />\n                    </div>\n                  </div>`,
-  `                    <div className="space-y-1.5">\n                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Duration of Contract</label>\n                      <input type="text" value={generalStaffForm.durationOfContract} onChange={e => setGeneralStaffForm(p => ({...p, durationOfContract: e.target.value}))} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. 1 Year, N/A" />\n                    </div>\n                  </div>` + teachingFieldsBlock
+  `                    <div className="space-y-1.5">\n                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Duration of Contract</label>\n                      <input type="text" value={generalStaffForm.durationOfContract} onChange={e => setGeneralStaffForm(p => ({...p, durationOfContract: e.target.value}))} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="e.g. 1 Year, N/A" />\n                    </div>\n                  </div>`,
+  `                    <div className="space-y-1.5">\n                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Duration of Contract</label>\n                      <input type="text" value={generalStaffForm.durationOfContract} onChange={e => setGeneralStaffForm(p => ({...p, durationOfContract: e.target.value}))} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="e.g. 1 Year, N/A" />\n                    </div>\n                  </div>` + teachingFieldsBlock
 );
 
 // 4. Update the row display for role to use responsibility
@@ -203,7 +203,7 @@ const editModalString = `
               </div>
               <div className="flex gap-3 justify-end mt-6">
                 <button type="button" onClick={() => setEditingStaffId(null)} className="px-5 py-2 hover:bg-slate-100 rounded-xl font-bold">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-orange-600 text-white rounded-xl font-bold">Save Changes</button>
+                <button type="submit" className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold">Save Changes</button>
               </div>
             </form>
           </div>

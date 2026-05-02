@@ -69,9 +69,11 @@ export const useAuth = (): AuthState => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('[useAuth] onAuthStateChanged triggered:', { uid: user?.uid, isAnonymous: user?.isAnonymous });
       setFirebaseUser(user);
 
       if (!user) {
+        console.log('[useAuth] No user found. Clearing profile.');
         // Not logged in — clear state unless we are in dev mock mode
         if (!isMockAuth) setProfile(null);
         setIsLoading(false);
@@ -81,12 +83,12 @@ export const useAuth = (): AuthState => {
       // If we already have a confirmed profile for this user, skip re-fetch
       // This prevents the auth listener from overwriting a profile set by the login handler
       if (profile && profile.role) {
-        console.log('[useAuth] Profile already resolved, skipping re-fetch.');
+        console.log('[useAuth] Profile already resolved for UID:', user.uid);
         setIsLoading(false);
         return;
       }
 
-      let keepLoading = false;
+      console.log('[useAuth] Resolving role for user:', user.uid);
       
       // Prevent blocking UI and unmounting LandingPage for anonymous users
       // (staff logging in with access code)
@@ -96,25 +98,31 @@ export const useAuth = (): AuthState => {
       
       try {
         const resolved = await resolveUserRole(user.uid, user.metadata.creationTime, 0, user.email);
+        console.log('[useAuth] resolveUserRole result:', resolved);
         if (resolved) {
           setProfile(resolved);
           setIsMockAuth(false);
         } else {
-          // ─── Staff Login Fix ──────────────────────────────────────────────
-          if (user.isAnonymous) {
-            console.warn('[useAuth] Anonymous user found but no record yet. This is expected during LandingPage linking.');
-            // Crucial: ensure loading is false so LandingPage doesn't unmount
+          // ─── Registration/Staff Login Fix ──────────────────────────────────
+          const isPendingReg = sessionStorage.getItem('pending_registration') === 'true';
+          
+          if (user.isAnonymous || isPendingReg) {
+            console.warn('[useAuth] User found but no record yet. Registration or Anonymous link pending.');
+            // Crucial: ensure loading is false so UI doesn't hang
             setIsLoading(false); 
             return;
           }
 
+          console.error('[useAuth] No profile resolved for user. Signing out.');
           toast.error('Your account is not configured. Contact a platform administrator.');
           await signOutUser();
           setProfile(null);
         }
-      } catch {
+      } catch (err) {
+        console.error('[useAuth] Error during role resolution:', err);
         toast.error('Cloud connectivity error. Please refresh the page.');
       } finally {
+        console.log('[useAuth] Auth resolution cycle finished.');
         // Only set loading false if we aren't in a special exclusion case
         if (!user.isAnonymous) {
           setIsLoading(false);

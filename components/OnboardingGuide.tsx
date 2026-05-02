@@ -21,8 +21,8 @@ const STEPS = [
     icon: <GraduationCap size={22} className="text-orange-600" />,
     title: 'Add your staff',
     description: 'Register teachers and non-teaching staff. They get access codes to login and manage their classrooms.',
-    selector: '[data-id="staff-management"]',
-    tab: 'staff-management',
+    selector: '[data-id="admin"]',
+    tab: 'admin',
     cta: 'Go to staff management',
     localStorageSignal: 'onboarding_staff_added',
   },
@@ -198,26 +198,26 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ setActiveTab }) => {
               initial={{ scale: 0.88, opacity: 0, y: 30 }}
               animate={{ scale: 1, opacity: 1, y: 0, transition: { type: 'spring', damping: 22, stiffness: 200 } }}
               exit={{ scale: 0.92, opacity: 0 }}
-              className="bg-white rounded-[2rem] shadow-2xl max-w-sm w-full p-8 relative overflow-hidden"
+              className="bg-[#0b3d2e] rounded-[2rem] shadow-2xl max-w-sm w-full p-8 relative overflow-hidden text-white"
             >
               {/* Corner decoration */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-100 to-amber-50 rounded-bl-[3rem] opacity-70 pointer-events-none" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-[3rem] opacity-20 pointer-events-none" />
 
               <div className="relative z-10">
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-2">Welcome to BrightSoma! 👋</h2>
-                <p className="text-sm font-medium text-slate-500 leading-relaxed mb-8">
+                <h2 className="text-2xl font-black text-white tracking-tight mb-2">Welcome to BrightSoma! 👋</h2>
+                <p className="text-sm font-medium text-emerald-100/70 leading-relaxed mb-8">
                   Let's get your school set up in a few quick steps.
                 </p>
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={handleStart}
-                    className="w-full py-4 bg-orange-600 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-orange-700 transition-all shadow-lg shadow-orange-500/25 active:scale-95"
+                    className="w-full py-4 bg-white text-[#0b3d2e] rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-emerald-50 transition-all shadow-lg active:scale-95"
                   >
                     Start guided setup <ChevronRight size={18} />
                   </button>
                   <button
                     onClick={handleSkipAll}
-                    className="w-full py-3 text-slate-400 font-semibold text-sm hover:text-slate-600 transition-all"
+                    className="w-full py-3 text-emerald-200/60 font-semibold text-sm hover:text-white transition-all"
                   >
                     Explore on my own
                   </button>

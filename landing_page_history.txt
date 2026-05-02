@@ -1,0 +1,364 @@
+﻿commit cfec22366923c1a3cba43a3a7d2cac694c04b24e
+Author: VdKibetrobert <dr.kibetrobert@gmail.com>
+Date:   Wed Apr 15 09:30:12 2026 +0300
+
+    Initial commit to isolate BrightSoma project
+
+diff --git a/components/LandingPage.tsx b/components/LandingPage.tsx
+new file mode 100644
+index 0000000..236752d
+--- /dev/null
++++ b/components/LandingPage.tsx
+@@ -0,0 +1,352 @@
++import React, { useState, useEffect, useRef } from 'react';
++import { UserRole } from '../types';
++import { 
++  Shield, ShieldCheck, Users, GraduationCap, ArrowRight, CheckCircle2,
++  Wallet, Lock, ArrowLeft, Loader2, School as SchoolIcon, Activity,
++  Mail, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, ArrowUp,
++  BookOpen, BarChart3, Bus, Heart, Package, Calendar, MessageSquare,
++  Zap, Globe, Star, Check, Play, Menu, X, Smartphone, Award,
++  Clock, Database, Search, Layout, Bell, MessageCircle
++} from 'lucide-react';
++import { motion, AnimatePresence } from 'motion/react';
++import { db, auth } from '../src/firebase';
++import { collection, query, where, getDocs, setDoc, doc, getDoc } from 'firebase/firestore';
++import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
++import toast from 'react-hot-toast';
++import DemoOnboardingScreen from './DemoOnboardingScreen';
++import RealRegistrationScreen from './RealRegistrationScreen';
++
++import { useNavigate } from 'react-router-dom';
++
++interface LandingPageProps {
++  isDarkMode: boolean;
++}
++
++
++const roles = [
++  { role: 'ADMIN' as const, title: 'School Director', description: 'Institutional Oversight And Strategy.', icon: <ShieldCheck size={24} strokeWidth={1.5} />, color: 'text-orange-600 bg-orange-50' },
++  { role: 'TEACHER' as const, title: 'Teacher', description: 'Cbc Assessments And Learner Growth.', icon: <Users size={24} strokeWidth={1.5} />, color: 'text-blue-600 bg-blue-50' },
++  { role: 'PRINCIPAL' as const, title: 'Principal', description: 'Academic Health And Staff Performance.', icon: <GraduationCap size={24} strokeWidth={1.5} />, color: 'text-emerald-600 bg-emerald-50' },
++  { role: 'FINANCE' as const, title: 'Finance Officer', description: 'Fee Collection And Etims Compliance.', icon: <Wallet size={24} strokeWidth={1.5} />, color: 'text-violet-600 bg-violet-50' },
++  { role: 'PLATFORM_ADMIN' as const, title: 'System Owner', description: 'Global Platform Control.', icon: <Activity size={24} strokeWidth={1.5} />, color: 'text-slate-600 bg-slate-50' },
++];
++
++const pricingPlans = [
++  {
++    name: 'Starter Kit', price: '3,000', period: '/ Month', cap: 'Up To 100 Learners', popular: false,
++    features: ['Learner Directory', 'Cbc Assessment Tools', 'Basic Attendance', 'School Profile', 'Messaging Support'],
++    cta: 'Get Started',
++  },
++  {
++    name: 'Professional', price: '8,000', period: '/ Month', cap: '100-500 Learners', popular: true,
++    features: ['Everything In Starter', 'M-Pesa Fee Collection', 'Etims Receipting', 'Staff Management', 'Communication Hub', 'Academic Analytics', 'Sms & Whatsapp Alerts'],
++    cta: 'Most Popular',
++  },
++  {
++    name: 'Super Dashboard', price: '15,000', period: '/ Month', cap: '500+ Learners', popular: false,
++    features: ['Everything In Professional', 'Boarding & Dorms', 'Transport Lifecycle', 'Inventory Control', 'Advanced Analytics', 'Bank Reconciliation', 'Intelligent Notifications'],
++    cta: 'Go Super',
++  },
++];
++
++const featureModules = [
++  { icon: <BarChart3 size={24} strokeWidth={1.5} />, name: 'Analytics', desc: 'Real-Time Performance Insights.', color: 'text-orange-600' },
++  { icon: <BookOpen size={24} strokeWidth={1.5} />, name: 'Cbc Engine', desc: 'Automated Grading & Reports.', color: 'text-blue-600' },
++  { icon: <Wallet size={24} strokeWidth={1.5} />, name: 'Financials', desc: 'M-Pesa & Etims Integrated.', color: 'text-emerald-600' },
++  { icon: <MessageCircle size={24} strokeWidth={1.5} />, name: 'Whatsapp', desc: 'Direct School-Parent Links.', color: 'text-violet-600' },
++];
++
++const testimonies = [
++  { name: 'Mary Njenga', role: 'Principal', quote: 'Cbc Marks Are Now Automated, Saving Teachers Hours.' },
++  { name: 'James Kamau', role: 'Director', quote: 'M-Pesa Collection Has Improved Our Cashflow Significantly.' },
++  { name: 'Sarah Wambui', role: 'Finance', quote: 'The Etims Integration Is A Lifesaver For Our Tax Compliance.' },
++];
++
++export default function LandingPage({ isDarkMode }: LandingPageProps) {
++  const navigate = useNavigate();
++  const [showScrollTop, setShowScrollTop] = useState(false);
++
++  
++  const directorImg = "/assets/director.png";
++  const studentsImg = "/assets/students.png";
++
++  useEffect(() => {
++    const onScroll = () => setShowScrollTop(window.scrollY > 500);
++    window.addEventListener('scroll', onScroll, { passive: true });
++    return () => window.removeEventListener('scroll', onScroll);
++  }, []);
++
++
++  const navLinks = ['Features', 'Pricing', 'Testimonials'];
++
++  return (
++    <div className="relative min-h-screen bg-white text-slate-800 font-sans selection:bg-orange-100 selection:text-orange-900 overflow-x-hidden">
++      
++      {/* ΓöÇΓöÇΓöÇ NAVIGATION ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++      <header className="fixed top-0 inset-x-0 z-[100] bg-white/70 backdrop-blur-xl border-b border-slate-100 h-20">
++        <div className="w-full px-2 h-full flex items-center justify-between">
++          <div className="flex items-center gap-3 group cursor-pointer" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
++            <div className="w-10 h-10 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/10">
++              <SchoolIcon size={22} className="text-white" strokeWidth={1.5} />
++            </div>
++            <span className="text-xl font-medium tracking-tight text-slate-900">Bright<span className="text-orange-500">Soma</span></span>
++          </div>
++
++          <nav className="hidden md:flex items-center gap-10">
++            {navLinks.map(l => (
++              <a key={l} href={`#${l.toLowerCase()}`} className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors tracking-wider">{l}</a>
++            ))}
++          </nav>
++
++          <div className="flex items-center gap-4">
++            <button onClick={() => navigate('/signin')} className="px-6 py-2.5 bg-slate-900 text-white rounded-full text-xs font-medium tracking-widest hover:bg-orange-600 transition-all active:scale-95 shadow-lg shadow-slate-900/10">Sign In</button>
++          </div>
++
++        </div>
++      </header>
++
++      {/* ΓöÇΓöÇΓöÇ HERO SECTION ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++      <section className="relative px-6 pt-44 pb-32">
++        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-20 items-center">
++          <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }} className="animate-zoom-spread">
++            <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-600 rounded-full text-[10px] font-medium tracking-[0.2em] mb-8 border border-orange-100">
++               <Sparkles size={14} strokeWidth={1.5} /> The Standard For Kenyan Academies
++            </div>
++            <h1 className="text-6xl md:text-8xl font-medium tracking-tighter leading-[0.9] text-slate-900 mb-10">
++              Education<br />Management <span className="text-orange-500 italic">Redefined.</span>
++            </h1>
++            <p className="text-xl text-slate-500 font-medium max-w-xl leading-relaxed mb-12">
++              BrightSoma Is Built For The Kenyan ContextΓÇöAutomating Cbc Assessments, M-Pesa Fee Collections, And School Financials In One Clean Interface.
++            </p>
++            <div className="flex flex-wrap gap-4">
++               <button onClick={() => navigate('/signin')} className="px-10 py-5 bg-orange-600 text-white rounded-2xl text-xs font-medium tracking-[0.2em] hover:shadow-2xl hover:shadow-orange-200 transition-all active:scale-95">Enroll Your Institution</button>
++               <button className="px-10 py-5 border border-slate-200 rounded-2xl text-xs font-medium tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center gap-2">Watch Demo <Play size={14} fill="currentColor" /></button>
++            </div>
++
++          </motion.div>
++
++          <div className="relative">
++            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }} className="relative z-10 rounded-[4rem] overflow-hidden shadow-2xl bg-white border border-slate-50">
++               <img src={directorImg} alt="Kenya School Director" className="w-full h-full object-cover grayscale-[20%] hover:grayscale-0 transition-all duration-700" />
++            </motion.div>
++            <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5, duration: 1 }} className="absolute -bottom-10 -left-20 z-20 w-80 h-[300px] border-8 border-white rounded-[3rem] overflow-hidden shadow-2xl hidden md:block">
++               <img src={studentsImg} alt="Classroom Learning" className="w-full h-full object-cover" />
++            </motion.div>
++          </div>
++        </div>
++      </section>
++
++      {/* ΓöÇΓöÇΓöÇ SMART FEATURES SHOWCASE ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++      <section id="features" className="py-32 bg-white relative overflow-hidden">
++        <div className="max-w-7xl mx-auto px-6">
++          <div className="text-center mb-24">
++            <h2 className="text-4xl md:text-6xl font-medium tracking-tight text-slate-900 mb-6">Smart Features, <span className="text-orange-500 italic">One Interface.</span></h2>
++            <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">Data-Driven Decisions Start With Integrated Modules That Talk To Each Other.</p>
++          </div>
++
++          <div className="grid lg:grid-cols-2 gap-20 items-center">
++            {/* Mock Dashboard Showcase */}
++            <div className="relative h-[650px] flex items-center justify-center">
++               {/* Main Dashboard UI Card */}
++               <motion.div initial={{ opacity: 0, scale: 0.8 }} whileInView={{ opacity: 1, scale: 1 }} className="w-full max-w-md bg-white border border-slate-100 rounded-[3rem] shadow-3xl p-10 relative z-10 overflow-hidden">
++                  <div className="flex items-center justify-between mb-10">
++                     <div className="flex items-center gap-3">
++                        <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center"><Layout size={18} className="text-white" /></div>
++                        <div>
++                           <div className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Dashboard</div>
++                           <div className="text-sm font-medium text-slate-900">Control Center</div>
++                        </div>
++                     </div>
++                     <Search size={20} className="text-slate-300" strokeWidth={1.5} />
++                  </div>
++                  <div className="grid grid-cols-2 gap-4 mb-10">
++                     <div className="p-5 bg-orange-50 rounded-3xl space-y-3">
++                        <Wallet className="text-orange-600" size={20} strokeWidth={1.5} />
++                        <div>
++                           <div className="text-[9px] font-medium text-orange-600/60 uppercase tracking-widest">Fee Collection</div>
++                           <div className="text-lg font-medium text-orange-950">92% Met</div>
++                        </div>
++                     </div>
++                     <div className="p-5 bg-blue-50 rounded-3xl space-y-3">
++                        <Users className="text-blue-600" size={20} strokeWidth={1.5} />
++                        <div>
++                           <div className="text-[9px] font-medium text-blue-600/60 uppercase tracking-widest">Learners</div>
++                           <div className="text-lg font-medium text-blue-950">Active Now</div>
++                        </div>
++                     </div>
++                  </div>
++                  <div className="space-y-4">
++                     {[
++                       { label: 'Academic Performance', val: 'Improving', col: 'bg-emerald-100 text-emerald-700' },
++                       { label: 'Staff Attendance', val: 'On Track', col: 'bg-blue-100 text-blue-700' },
++                       { label: 'Inventory Health', val: 'Stable', col: 'bg-slate-100 text-slate-700' }
++                     ].map((item, i) => (
++                        <div key={i} className="flex items-center justify-between p-4 border border-slate-50 rounded-2xl">
++                           <div className="flex items-center gap-3">
++                              <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center"><Clock size={16} className="text-slate-400" /></div>
++                              <span className="text-xs font-medium text-slate-600">{item.label}</span>
++                           </div>
++                           <span className={`text-[9px] font-medium uppercase tracking-widest px-2 py-1 rounded-full ${item.col}`}>{item.val}</span>
++                        </div>
++                     ))}
++                  </div>
++               </motion.div>
++
++               {/* Satellite "Child Cards" */}
++               <motion.div animate={{ y: [0, -20, 0] }} transition={{ duration: 4, repeat: Infinity }} className="absolute -top-10 right-0 z-20 p-6 bg-white border border-slate-100 rounded-3xl shadow-xl flex items-center gap-4">
++                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center"><CheckCircle2 size={24} strokeWidth={1.5} /></div>
++                  <div>
++                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Enrollment</p>
++                    <p className="text-sm font-medium text-slate-800">New Learner Registered</p>
++                  </div>
++               </motion.div>
++
++               <motion.div animate={{ y: [0, 20, 0] }} transition={{ duration: 5, repeat: Infinity }} className="absolute bottom-10 -left-10 z-20 p-6 bg-white border border-slate-100 rounded-3xl shadow-xl flex items-center gap-4">
++                  <div className="w-12 h-12 bg-violet-50 text-violet-600 rounded-2xl flex items-center justify-center"><Smartphone size={24} strokeWidth={1.5} /></div>
++                  <div>
++                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">M-Pesa</p>
++                    <p className="text-sm font-medium text-slate-800">Fee Payment Success</p>
++                  </div>
++               </motion.div>
++            </div>
++
++            <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
++               {featureModules.concat([
++                 { icon: <Bell size={24} strokeWidth={1.5} />, name: 'Smart Alerts', desc: 'Instant Push & Data Notifications.', color: 'text-rose-600' },
++                 { icon: <MessageSquare size={24} strokeWidth={1.5} />, name: 'Sms Hub', desc: 'Secure Mass Communication.', color: 'text-teal-600' }
++               ]).map((m, i) => (
++                  <div key={i} className="group p-8 rounded-[2.5rem] border border-slate-100 hover:border-orange-200 transition-all duration-500">
++                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 bg-white border border-slate-100 ${m.color} shadow-sm group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500`}>
++                        {m.icon}
++                     </div>
++                     <h3 className="text-xl font-medium text-slate-900 mb-3 tracking-tight">{m.name}</h3>
++                     <p className="text-sm text-slate-500 font-medium leading-relaxed">{m.desc}</p>
++                  </div>
++               ))}
++            </div>
++          </div>
++        </div>
++      </section>
++
++      {/* ΓöÇΓöÇΓöÇ PRICING ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++      <section id="pricing" className="py-32 px-6 bg-white">
++        <div className="max-w-7xl mx-auto">
++          <div className="text-center mb-20">
++             <h2 className="text-4xl md:text-6xl font-medium tracking-tight text-slate-900 mb-6">Simple, Fair Pricing.</h2>
++             <p className="text-lg text-slate-500 font-medium italic mb-12">Pay Monthly For Predictable School Growth.</p>
++          </div>
++
++          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
++            {pricingPlans.map((plan, i) => (
++              <div key={i} className={`relative p-12 rounded-[3.5rem] border ${plan.popular ? 'border-orange-500 shadow-2xl shadow-orange-100' : 'border-slate-100'} transition-all hover:-translate-y-2 duration-500`}>
++                {plan.popular && <div className="absolute top-8 right-8 bg-orange-600 text-white text-[9px] font-medium uppercase tracking-widest px-3 py-1 rounded-full">Most Popular</div>}
++                <div className="mb-10">
++                   <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400 mb-6">{plan.name}</h3>
++                   <div className="flex items-baseline gap-2">
++                      <span className="text-5xl font-medium text-slate-900 tracking-tighter">Kes {plan.price}</span>
++                      <span className="text-sm font-medium text-slate-400 uppercase tracking-widest">{plan.period}</span>
++                   </div>
++                   <p className="mt-4 text-xs font-medium text-orange-600 uppercase tracking-widest">{plan.cap}</p>
++                </div>
++                <ul className="space-y-4 mb-12 border-t border-slate-50 pt-8">
++                  {plan.features.map((f, j) => (
++                    <li key={j} className="flex items-center gap-3 text-sm font-medium text-slate-500">
++                       <Check size={16} className="text-emerald-500" strokeWidth={2} /> {f}
++                    </li>
++                  ))}
++                </ul>
++                <button className={`w-full py-5 rounded-2xl text-xs font-medium uppercase tracking-[0.2em] transition-all active:scale-95 ${plan.popular ? 'bg-orange-600 text-white shadow-xl shadow-orange-200' : 'bg-slate-900 text-white'}`}>{plan.cta}</button>
++              </div>
++            ))}
++          </div>
++        </div>
++      </section>
++
++      {/* ΓöÇΓöÇΓöÇ TESTIMONIALS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++      <section id="testimonials" className="py-32 bg-white">
++        <div className="max-w-7xl mx-auto px-6">
++           <div className="grid md:grid-cols-3 gap-12">
++              {testimonies.map((t, i) => (
++                <div key={i} className="p-10 bg-slate-50 rounded-[2.5rem] relative group">
++                   <div className="flex gap-1 mb-6">
++                      {[1,2,3,4,5].map(s => <Star key={s} size={14} fill="#f97316" className="text-orange-500" />)}
++                   </div>
++                   <p className="text-lg font-medium text-slate-700 italic mb-8">"{t.quote}"</p>
++                   <div className="flex items-center gap-4">
++                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-medium text-orange-600 border border-slate-100 shadow-sm">{t.name[0]}</div>
++                      <div>
++                         <p className="text-sm font-medium text-slate-900">{t.name}</p>
++                         <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{t.role}</p>
++                      </div>
++                   </div>
++                </div>
++              ))}
++           </div>
++        </div>
++      </section>
++
++
++      {/* ΓöÇΓöÇΓöÇ FOOTER ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++      <footer className="py-24 px-6 border-t border-slate-50 bg-white">
++        <div className="w-full">
++          <div className="grid md:grid-cols-4 gap-16 mb-20 px-6">
++             <div className="space-y-6">
++                <div className="flex items-center gap-3">
++                   <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center">
++                      <SchoolIcon size={18} className="text-white" strokeWidth={1.5} />
++                   </div>
++                   <span className="text-sm font-medium tracking-[0.2em]">Bright<span className="text-orange-500">Soma</span></span>
++                </div>
++                <p className="text-xs text-slate-400 font-medium leading-relaxed tracking-wider">The Operating System For Modern Kenyan Education. Compliant, Integrated, And Scalable.</p>
++                <div className="flex gap-4">
++                   <Globe size={18} className="text-slate-300" strokeWidth={1.5} />
++                   <Database size={18} className="text-slate-300" strokeWidth={1.5} />
++                   <Award size={18} className="text-slate-300" strokeWidth={1.5} />
++                </div>
++             </div>
++             <div>
++                <h4 className="text-[10px] font-medium text-slate-900 uppercase tracking-[0.3em] mb-8">Platform</h4>
++                <ul className="space-y-4 text-[11px] font-medium text-slate-500 tracking-widest">
++                   <li><a href="#" className="hover:text-orange-600 transition-colors">Cbc Assessment</a></li>
++                   <li><a href="#" className="hover:text-orange-600 transition-colors">Fee Management</a></li>
++                   <li><a href="#" className="hover:text-orange-600 transition-colors">Staff Directory</a></li>
++                   <li><a href="#" className="hover:text-orange-600 transition-colors">Kra Etims Sync</a></li>
++                </ul>
++             </div>
++             <div>
++                <h4 className="text-[10px] font-medium text-slate-900 uppercase tracking-[0.3em] mb-8">Company</h4>
++                <ul className="space-y-4 text-[11px] font-medium text-slate-500 tracking-widest">
++                   <li><a href="#" className="hover:text-orange-600 transition-colors">About Story</a></li>
++                   <li><a href="#" className="hover:text-orange-600 transition-colors">Partner Program</a></li>
++                   <li><a href="#" className="hover:text-orange-600 transition-colors">Security Model</a></li>
++                   <li><a href="#" className="hover:text-orange-600 transition-colors">Privacy Ethics</a></li>
++                </ul>
++             </div>
++             <div>
++                <h4 className="text-[10px] font-medium text-slate-900 uppercase tracking-[0.3em] mb-8">Legal</h4>
++                <div className="p-6 bg-white border border-slate-100 rounded-[2rem] shadow-sm">
++                   <p className="text-[10px] font-medium text-slate-400 leading-relaxed tracking-widest mb-4">BrightSoma Technologies Ltd. All Rights Reserved. 2026.</p>
++                   <a href="https://wa.me/254757956643" target="_blank" className="text-[9px] font-medium text-orange-600 tracking-widest underline decoration-orange-200">Contact Support</a>
++                </div>
++             </div>
++          </div>
++          <div className="text-center pt-10 border-t border-slate-50">
++             <p className="text-[9px] font-medium text-slate-300 uppercase tracking-[0.5em]">Built For The Excellence Of Kenyan Learners.</p>
++          </div>
++        </div>
++      </footer>
++
++      {/* ΓöÇΓöÇΓöÇ SCROLL TO TOP ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */}
++      <AnimatePresence>
++        {showScrollTop && (
++          <motion.button initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0 }}
++            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
++            className="fixed bottom-10 right-10 w-14 h-14 bg-slate-900 text-white rounded-3xl shadow-3xl flex items-center justify-center hover:bg-orange-600 transition-all z-[150] active:scale-95"
++          >
++            <ArrowUp size={24} strokeWidth={1.5} />
++          </motion.button>
++        )}
++      </AnimatePresence>
++    </div>
++  );
++}

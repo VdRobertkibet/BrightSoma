@@ -66,6 +66,11 @@ const SchoolProfile: React.FC<SchoolProfileProps> = ({ academicPeriod }) => {
   const [newStream1, setNewStream1] = useState('');
   const [newStream2, setNewStream2] = useState('');
   const [newStream3, setNewStream3] = useState('');
+  
+  const [dorms, setDorms] = useState<any[]>([]);
+  const [newDormName, setNewDormName] = useState('');
+  const [newDormCapacity, setNewDormCapacity] = useState('40');
+  const [newDormMatron, setNewDormMatron] = useState('');
 
   const handleAddStreams = async () => {
     const streamsToAdd = [newStream1.trim(), newStream2.trim(), newStream3.trim()].filter(s => s !== '');
@@ -256,10 +261,54 @@ const SchoolProfile: React.FC<SchoolProfileProps> = ({ academicPeriod }) => {
       setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student)));
     });
 
+    // Listen for dorms
+    const qDorms = query(
+      collection(db, 'dormitories'),
+      where('schoolId', '==', schoolId)
+    );
+    const unsubDorms = onSnapshot(qDorms, (snapshot) => {
+      setDorms(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => {
       unsubStudents();
+      unsubDorms();
     };
   }, [authProfile?.schoolId, auth.currentUser?.uid]);
+
+  const handleAddDorm = async () => {
+    if (!newDormName.trim()) return;
+    const user = auth.currentUser;
+    if (!user) return;
+    const schoolId = authProfile?.schoolId || user.uid;
+
+    try {
+      await addDoc(collection(db, 'dormitories'), {
+        schoolId,
+        name: newDormName.trim(),
+        capacity: parseInt(newDormCapacity) || 0,
+        matronName: newDormMatron.trim(),
+        currentOccupancy: 0,
+        studentIds: [],
+        createdAt: new Date().toISOString()
+      });
+      toast.success("Dormitory added!");
+      setNewDormName('');
+      setNewDormMatron('');
+    } catch (err) {
+      toast.error("Failed to add dorm.");
+    }
+  };
+
+  const handleDeleteDorm = async (id: string) => {
+    if (!window.confirm("Delete this dormitory? This will unassign all students.")) return;
+    try {
+      await deleteDoc(doc(db, 'dormitories', id));
+      toast.success("Dormitory removed.");
+    } catch (err) {
+      toast.error("Failed to remove dorm.");
+    }
+  };
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -344,7 +393,7 @@ const SchoolProfile: React.FC<SchoolProfileProps> = ({ academicPeriod }) => {
       
       toast.success("School profile updated successfully!", {
         style: {
-          background: '#f97316',
+          background: '#0462b4',
           color: '#fff',
           fontWeight: 'black',
           borderRadius: '20px'
@@ -882,6 +931,98 @@ const SchoolProfile: React.FC<SchoolProfileProps> = ({ academicPeriod }) => {
               </div>
             );
           })}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {/* Dormitory Management */}
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm transition-colors lg:col-span-2">
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
+                <Building2 size={24} className="text-orange-600" />
+                Boarding & Infrastructure
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Manage school dormitories and boarding settings.</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dorm Name</label>
+              <input 
+                type="text" 
+                value={newDormName}
+                onChange={(e) => setNewDormName(e.target.value)}
+                placeholder="e.g. Mandela Hall"
+                className="w-full px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Capacity</label>
+              <input 
+                type="number" 
+                value={newDormCapacity}
+                onChange={(e) => setNewDormCapacity(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Matron Name</label>
+              <input 
+                type="text" 
+                value={newDormMatron}
+                onChange={(e) => setNewDormMatron(e.target.value)}
+                placeholder="Optional"
+                className="w-full px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+              />
+            </div>
+            <div className="flex items-end">
+              <button 
+                onClick={handleAddDorm}
+                className="w-full py-2.5 bg-[#0b3d2e] hover:bg-emerald-900 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-950/20 active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Building2 size={16} /> Add Dormitory
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {dorms.map(dorm => (
+              <div key={dorm.id} className="p-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm relative group">
+                <button 
+                  onClick={() => handleDeleteDorm(dorm.id)}
+                  className="absolute top-4 right-4 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                >
+                  <Trash2 size={14} />
+                </button>
+                <h4 className="font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  {dorm.name}
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-slate-500">Occupancy</span>
+                    <span className="text-slate-800 dark:text-slate-200">{dorm.currentOccupancy || 0} / {dorm.capacity}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-emerald-500 transition-all" 
+                      style={{ width: `${Math.min(100, ((dorm.currentOccupancy || 0) / dorm.capacity) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-2">
+                    Matron: {dorm.matronName || 'Unassigned'}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {dorms.length === 0 && (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[2rem]">
+                <Building2 size={32} className="mb-2 opacity-20" />
+                <p className="text-sm font-bold">No dormitories defined yet.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

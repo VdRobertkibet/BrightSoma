@@ -129,6 +129,9 @@ const Dashboard: React.FC<DashboardProps> = ({ role, academicPeriod, setActiveTa
             query(collection(db, 'notifications'), where('schoolId', '==', schoolId), orderBy('timestamp', 'desc'), limit(10)),
             (snapshot) => {
               setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            },
+            (error) => {
+              console.warn("[Dashboard] Notifications snapshot failed (possibly missing index):", error);
             }
           );
 

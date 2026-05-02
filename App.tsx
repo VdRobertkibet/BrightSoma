@@ -32,7 +32,7 @@ import PlatformAdminModule from './components/PlatformAdminModule';
 import BottomNav from './components/BottomNav';
 import DemoSwitcher from './components/DemoSwitcher';
 import LockScreen from './components/LockScreen';
-import { PieChart, ArrowUp, Loader2 } from 'lucide-react';
+import { PieChart, ArrowUp, Loader2, Shield } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import AdminBootstrap from './components/AdminBootstrap';
@@ -67,8 +67,19 @@ const App: React.FC = () => {
   const [demoOverride, setDemoOverride] = useState<{ role: typeof role; edition: 'starter' | 'professional' | 'elite' } | null>(null);
   const [academicPeriod, setAcademicPeriod] = useState(ACADEMIC_PERIODS[0]);
   
-  const activeTab = location.pathname === '/' || location.pathname === '' ? 'dashboard' : location.pathname.substring(1).split('/')[0];
-  const setActiveTab = (tab: string) => navigate(`/${tab}`);
+  const activeTab = location.pathname === '/' || location.pathname === '' 
+    ? (localStorage.getItem('last_active_tab') || 'dashboard') 
+    : location.pathname.substring(1).split('/')[0];
+
+  useEffect(() => {
+    if (activeTab && activeTab !== 'dashboard') {
+      localStorage.setItem('last_active_tab', activeTab);
+    }
+  }, [activeTab]);
+
+  const setActiveTab = (tab: string) => {
+    navigate(`/${tab}`);
+  };
 
   // ─── COUNTY PORTAL — fully isolated, bypasses school auth ────────────────
   const [countyName, setCountyName] = useState<string>(
@@ -195,21 +206,24 @@ const App: React.FC = () => {
 
       // Check for new user onboarding (Now Firestore-backed)
       const hasOnboarded = profile?.onboardingCompleted;
-      if (!hasOnboarded && effectiveRole === 'ADMIN' && activeTab === 'dashboard') {
+      const hasSeenWelcome = sessionStorage.getItem('hasSeenWelcomeToast');
+
+      if (!hasOnboarded && effectiveRole === 'ADMIN' && activeTab === 'dashboard' && !hasSeenWelcome) {
+        sessionStorage.setItem('hasSeenWelcomeToast', 'true');
         setTimeout(() => {
           setActiveTab('profile');
           toast.success(`Welcome to BrightSoma! Let's get your school set up.`, {
             duration: 5000,
             position: 'top-left',
             style: {
-              background: '#f97316',
+              background: '#0462b4',
               color: '#fff',
               fontWeight: 'black',
               borderRadius: '24px',
               padding: '24px 32px',
-              boxShadow: '0 25px 50px -12px rgba(249, 115, 22, 0.4)',
-              border: '4px solid rgba(255,255,255,0.2)',
-              fontSize: '1.2rem'
+              boxShadow: '0 25px 50px -12px rgba(4, 98, 180, 0.4)',
+              border: '4px solid rgba(255,255,255,0.1)',
+              fontSize: '1.1rem'
             },
             icon: '🏢',
           });
@@ -233,6 +247,7 @@ const App: React.FC = () => {
   }, [activeTab, role, effectiveRole, isPlatformAdmin]);
 
   const renderedView = useMemo(() => {
+    console.log('[App] Resolving renderedView for activeTab:', activeTab, 'EffectiveRole:', effectiveRole);
     const isStaffRegistering = firebaseUser?.isAnonymous && !profile && !isAuthLoading;
 
     // The logic below was causing the 'Loading Portal' to flicker/mount
@@ -256,14 +271,22 @@ const App: React.FC = () => {
               ? <PlatformAdminModule /> 
               : <Dashboard role={effectiveRole} academicPeriod={academicPeriod} setActiveTab={setActiveTab} enabledModules={enabledModules} />
             )
-          : <LandingPage isDarkMode={isDarkMode} />;
+          : (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#0b0e14] p-10 text-center">
+              <div className="w-20 h-20 bg-orange-100 dark:bg-orange-500/10 rounded-[2rem] flex items-center justify-center text-orange-600 mb-8 animate-pulse">
+                <Shield size={32} />
+              </div>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Resolving Access...</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto">Verifying your institutional credentials.</p>
+            </div>
+          );
 
       case 'timetable': return <TimetableModule academicPeriod={academicPeriod} />;
-      case 'finance': return <FinanceModule />;
+      case 'finance': return <FinanceModule role={effectiveRole} />;
       case 'inventory': return <InventoryModule academicPeriod={academicPeriod} />;
       case 'boarding': return <BoardingModule />;
       case 'academics': return <AcademicModule />;
-      case 'students': return <StudentsModule setActiveTab={setActiveTab} />;
+      case 'students': return <StudentsModule setActiveTab={setActiveTab} role={effectiveRole} isDarkMode={isDarkMode} />;
       case 'register-learner': return <RegisterLearner setActiveTab={setActiveTab} />;
       case 'admin':
       case 'staff-management':
@@ -272,7 +295,7 @@ const App: React.FC = () => {
       case 'settings':
         const adminSubTab = activeTab === 'profile' ? 'profile' : (activeTab === 'settings' ? 'settings' : 'staff');
         return <AdminModule academicPeriod={academicPeriod} activeTab={adminSubTab} setActiveTab={setActiveTab} />;
-      case 'class-management': return <StudentsModule setActiveTab={setActiveTab} initialTab="classrooms" />;
+      case 'class-management': return <StudentsModule setActiveTab={setActiveTab} initialTab="classrooms" role={effectiveRole} isDarkMode={isDarkMode} />;
       case 'teacher': return <TeacherModule setActiveTab={setActiveTab} user={firebaseUser} profile={profile} />;
       case 'attendance-register': return <AttendanceModule onBack={() => setActiveTab('teacher')} />;
       case 'transport': return <TransportModule />;
@@ -339,6 +362,7 @@ const App: React.FC = () => {
 
   // Show loading state ONLY during auth resolution (skip for anonymous staff login)
   if (isAuthLoading && !firebaseUser?.isAnonymous) {
+    console.log('[App] Auth is loading. Showing Loading Portal...');
     return (
       <div className={`flex h-screen w-full items-center justify-center ${isDarkMode ? 'bg-[#0f172a]' : 'bg-[#f8fafc]'}`}>
         <div className="flex flex-col items-center gap-6">
@@ -389,19 +413,19 @@ const App: React.FC = () => {
           className: 'dark:bg-slate-800 dark:text-white',
           success: {
             style: {
-              background: '#f97316',
+              background: '#0462b4',
               color: '#ffffff',
               fontWeight: 'black',
               borderRadius: '24px',
               padding: '16px 28px',
               border: '2px solid rgba(255,255,255,0.1)',
-              boxShadow: '0 20px 40px -10px rgba(249, 115, 22, 0.3)',
+              boxShadow: '0 20px 40px -10px rgba(4, 98, 180, 0.3)',
               fontSize: '14px',
               letterSpacing: '-0.02em'
             },
             iconTheme: {
               primary: '#ffffff',
-              secondary: '#f97316',
+              secondary: '#0462b4',
             },
           },
           style: {

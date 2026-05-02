@@ -26,8 +26,8 @@ export const ACADEMIC_PERIODS = ['Term 1 2026', 'Term 2 2026', 'Term 3 2026'];
 
 /** BrightSoma brand color palette. These are the primary accent colors used throughout the platform. */
 export const BRAND_COLORS = {
-  primary: '#f97316',    // Orange 500 — main brand accent
-  dark:    '#ea580c',    // Orange 600 — hover/active states
+  primary: '#ea580c',    // Orange 600 — main brand accent
+  dark:    '#c2410c',    // Orange 700 — hover/active states
   black:   '#000000',   // True black
   white:   '#FFFFFF',   // White
 } as const;
@@ -42,10 +42,10 @@ export const KENYA_COLORS = {
 export const CBC_GRADES = Object.values(CBCGrade);
 
 export const PERFORMANCE_LEVELS: { level: PerformanceLevel; label: string; color: string }[] = [
-  { level: 'EE', label: 'Exceeds Expectation', color: '#ea580c' }, // orange-600
-  { level: 'ME', label: 'Meets Expectation', color: '#f97316' },   // orange-500
-  { level: 'AE', label: 'Approaching Expectation', color: '#fb923c' }, // orange-400
-  { level: 'BE', label: 'Below Expectation', color: '#fdba74' }, // orange-300
+  { level: 'EE', label: 'Exceeds Expectation', color: '#c2410c' }, // orange-700
+  { level: 'ME', label: 'Meets Expectation', color: '#ea580c' },   // orange-600
+  { level: 'AE', label: 'Approaching Expectation', color: '#f97316' }, // orange-500
+  { level: 'BE', label: 'Below Expectation', color: '#fb923c' }, // orange-400
 ];
 
 export const LOWER_PRIMARY_LEARNING_AREAS = [
@@ -85,24 +85,24 @@ export const FEE_CATEGORIES = [
 
 export const NAVIGATION_ITEMS = [
   { id: 'platform-admin', label: 'Platform management', icon: <ShieldCheck size={20} />, roles: ['PLATFORM_ADMIN', 'SUPER_ADMIN'] },
-  { id: 'dashboard', label: 'School dashboard', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
+  { id: 'dashboard', label: 'School Dashboard', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
   { id: 'teacher', label: 'Teachers portal', icon: <LayoutDashboard size={20} />, roles: ['TEACHER'] },
-  { id: 'students', label: 'Learners & classes', icon: <Users size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER'] },
+  { id: 'students', label: 'Students & classes', icon: <Users size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER'] },
   { id: 'timetable', label: 'Timetable', icon: <Calendar size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER'] },
-  { id: 'finance', label: 'Finance & payments', icon: <Wallet size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'FINANCE', 'TEACHER'] },
+  { id: 'finance', label: 'Finance & Payments', icon: <Wallet size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'FINANCE', 'TEACHER'] },
   { id: 'bank', label: 'Bank accounts', icon: <Landmark size={20} />, roles: ['ADMIN', 'DIRECTOR', 'FINANCE'] },
-  { id: 'academics', label: 'CBC assessments', icon: <BookOpen size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER'] },
+  { id: 'academics', label: 'CBC Assessments', icon: <BookOpen size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER'] },
   { id: 'boarding', label: 'Boarding', icon: <Home size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
   { id: 'transport', label: 'Transport', icon: <Bus size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'PLATFORM_ADMIN', 'SUPER_ADMIN'] },
   { id: 'finance-analytics', label: 'Finance analytics', icon: <Wallet size={20} />, roles: ['PLATFORM_ADMIN', 'SUPER_ADMIN'] },
   { id: 'communication', label: 'Communication', icon: <MessageSquare size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER', 'PLATFORM_ADMIN', 'SUPER_ADMIN'] },
-  { id: 'health', label: "Students' health", icon: <HeartPulse size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
+  { id: 'health', label: "Students' Health", icon: <HeartPulse size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
   { id: 'inventory', label: 'Inventory', icon: <Package size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
   { id: 'admin', label: 'Staff management', icon: <GraduationCap size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
   { id: 'events', label: 'Events', icon: <Calendar size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
   { id: 'assets', label: 'Assets', icon: <Briefcase size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
-  { id: 'profile', label: 'School profile', icon: <School size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
+  { id: 'profile', label: 'School Profile', icon: <School size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
 ];
 
 export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];

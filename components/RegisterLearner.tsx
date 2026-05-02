@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   UserPlus, ArrowLeft, GraduationCap, Wallet, Home,
   Users, Activity, FileText, Bus, FileEdit, UploadCloud, X, CheckCircle2,
-  UserCheck, Download, Bell, Package, BookOpen
+  UserCheck, Download, Bell, Package, BookOpen, Trash2
 } from 'lucide-react';
 import { CBCGrade, BoardingType, StudentStatus } from '../types';
 import { CBC_GRADES } from '../constants';
@@ -18,12 +18,34 @@ interface RegisterLearnerProps {
 }
 
 const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
+  // --- PERSISTENCE LOGIC ---
+  const [formData, setFormData] = useState<any>(() => {
+    const saved = localStorage.getItem('learner_registration_draft');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const updateDraft = (field: string, value: any) => {
+    const newDraft = { ...formData, [field]: value };
+    setFormData(newDraft);
+    localStorage.setItem('learner_registration_draft', JSON.stringify(newDraft));
+  };
+
+  const clearDraft = () => {
+    if (window.confirm("Are you sure you want to clear this draft and start fresh?")) {
+      setFormData({});
+      localStorage.removeItem('learner_registration_draft');
+      toast.success("Draft cleared.");
+      // Force reload to reset uncontrolled inputs if necessary
+      window.location.reload();
+    }
+  };
+
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [transportRequired, setTransportRequired] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, File>>({});
   const [autoAdmissionNumber, setAutoAdmissionNumber] = useState(`SCH/${new Date().getFullYear()}/`);
   const [isGeneratingAdmn, setIsGeneratingAdmn] = useState(true);
-  const [isBoarding, setIsBoarding] = useState(false);
+  const [isBoarding, setIsBoarding] = useState(() => formData.boardingType === 'Boarding');
   const [boardingEquipment, setBoardingEquipment] = useState<{id: string, item: string, checked: boolean}[]>([
     { id: '1', item: 'Mattress (3x6)', checked: false },
     { id: '2', item: 'Metal Box', checked: false },
@@ -44,6 +66,13 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
     { id: '3', item: 'Locker Key', checked: false }
   ]);
   const [newEquipment, setNewEquipment] = useState('');
+  const [activeTab, setActiveTabLocal] = useState(() => {
+    return localStorage.getItem('last_active_tab') || 'dashboard';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('last_active_tab', activeTab);
+  }, [activeTab]);
   const [newDayItem, setNewDayItem] = useState('');
   const [newAllocatedItem, setNewAllocatedItem] = useState('');
   const [transportNotifs, setTransportNotifs] = useState({
@@ -440,6 +469,11 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
       }
 
       toast.success('Enrollment Successful. Learner profile has been created.');
+      
+      // 🚀 Signal onboarding guide that Step 3 is complete
+      localStorage.setItem('onboarding_learner_added', Date.now().toString());
+      window.dispatchEvent(new Event('storage'));
+
       setActiveTab('students');
     } catch (error: any) {
       console.error("Error saving document: ", error);
@@ -658,6 +692,15 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
           </label>
           <button
             type="button"
+            onClick={clearDraft}
+            className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl font-bold text-sm hover:bg-rose-100 transition-all active:scale-95 shrink-0"
+            title="Clear current draft"
+          >
+            <Trash2 size={16} />
+            <span className="hidden sm:inline">Clear Draft</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('students')}
             className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all active:scale-95 shrink-0"
           >
@@ -680,7 +723,12 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Full Names <span className="text-rose-500">*</span></label>
-              <input name="name" type="text" className={`w-full px-4 py-3 bg-slate-50 border ${formErrors.name ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} placeholder="Enter Full Name" required />
+              <input 
+                name="name" 
+                type="text" 
+                defaultValue={formData.name || ''}
+                onChange={(e) => updateDraft('name', e.target.value)}
+                className={`w-full px-4 py-3 bg-slate-50 border ${formErrors.name ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} placeholder="Enter Full Name" required />
               {formErrors.name && <p className="text-xs text-rose-500 mt-1">{formErrors.name}</p>}
             </div>
             <div className="space-y-1.5">
@@ -688,8 +736,9 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
               <input
                 name="admissionNumber"
                 type="text"
-                defaultValue={autoAdmissionNumber}
-                key={autoAdmissionNumber} // Force re-render when value changes
+                defaultValue={formData.admissionNumber || autoAdmissionNumber}
+                key={autoAdmissionNumber}
+                onChange={(e) => updateDraft('admissionNumber', e.target.value)}
                 className={`w-full px-4 py-3 bg-slate-50 border ${formErrors.admissionNumber ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`}
                 required
                 disabled={isGeneratingAdmn}
@@ -698,26 +747,50 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
             </div>
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">NEMIS Number</label>
-              <input name="nemisNumber" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="Optional" />
+              <input 
+                name="nemisNumber" 
+                type="text" 
+                defaultValue={formData.nemisNumber || ''}
+                onChange={(e) => updateDraft('nemisNumber', e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="Optional" />
             </div>
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Birth Certificate Number</label>
-              <input name="birthCertificateNumber" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+              <input 
+                name="birthCertificateNumber" 
+                type="text" 
+                defaultValue={formData.birthCertificateNumber || ''}
+                onChange={(e) => updateDraft('birthCertificateNumber', e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
             </div>
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date of Birth</label>
-              <input name="dateOfBirth" type="date" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+              <input 
+                name="dateOfBirth" 
+                type="date" 
+                defaultValue={formData.dateOfBirth || ''}
+                onChange={(e) => updateDraft('dateOfBirth', e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
             </div>
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Gender</label>
-              <select name="gender" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
+              <select 
+                name="gender" 
+                defaultValue={formData.gender || 'Male'}
+                onChange={(e) => updateDraft('gender', e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nationality</label>
-              <input name="nationality" type="text" defaultValue="Kenyan" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+              <input 
+                name="nationality" 
+                type="text" 
+                defaultValue={formData.nationality || "Kenyan"} 
+                onChange={(e) => updateDraft('nationality', e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
             </div>
           </div>
         </div>
@@ -755,7 +828,16 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
             </div>
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Boarding Model</label>
-              <select name="boardingType" onChange={(e) => setIsBoarding(e.target.value === 'Boarding')} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
+              <select 
+                name="boardingType" 
+                defaultValue={formData.boardingType || 'Day Scholar'}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setIsBoarding(val === 'Boarding');
+                  updateDraft('boardingType', val);
+                }} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer"
+              >
                 <option value="Day Scholar">Day Scholar</option>
                 <option value="Boarding">Boarding</option>
               </select>
@@ -1130,73 +1212,75 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
           </div>
         </div>
 
-        {/* SECTION 6: Transport Enrollment */}
-        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-100/50">
-                <Bus size={20} strokeWidth={2} className="text-slate-800" />
+        {/* SECTION 6: Transport Enrollment (Only for Day Scholars) */}
+        {!isBoarding && (
+          <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-100/50">
+                  <Bus size={20} strokeWidth={2} className="text-slate-800" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Transport Enrollment</h3>
               </div>
-              <h3 className="text-lg font-bold text-slate-800">Transport Enrollment</h3>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-slate-600">Transport Required?</span>
+                <button
+                  type="button"
+                  onClick={() => setTransportRequired(!transportRequired)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${transportRequired ? 'bg-orange-600' : 'bg-slate-200'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${transportRequired ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-slate-600">Transport Required?</span>
-              <button
-                type="button"
-                onClick={() => setTransportRequired(!transportRequired)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${transportRequired ? 'bg-orange-600' : 'bg-slate-200'}`}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${transportRequired ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
-            </div>
+
+            {transportRequired && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Route</label>
+                  <input name="route" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Route A" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pickup Point</label>
+                  <input name="pickupPoint" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Main Gate" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bus Number</label>
+                  <input name="busNumber" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. KCA 123A" />
+                </div>
+
+                <div className="md:col-span-3 pt-4 border-t border-slate-100">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Bell size={16} className="text-orange-600" />
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">SMS Enrollment Notifications</h4>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      { id: 'busArrived', label: 'Bus Arrived' },
+                      { id: 'boarded', label: 'Child Boarded' },
+                      { id: 'arrivedSchool', label: 'Arrived School' },
+                      { id: 'dropped', label: 'Child Dropped' }
+                    ].map(notif => (
+                      <label key={notif.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-white hover:border-orange-300 transition-all">
+                        <input 
+                          type="checkbox"
+                          checked={transportNotifs[notif.id as keyof typeof transportNotifs]}
+                          onChange={(e) => setTransportNotifs(p => ({ ...p, [notif.id]: e.target.checked }))}
+                          className="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500"
+                        />
+                        <span className="text-xs font-bold text-slate-600">{notif.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-3 font-medium flex items-center gap-1.5">
+                    <Bell size={10} />
+                    Parent will receive real-time SMS alerts for the selected events.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-
-          {transportRequired && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Route</label>
-                <input name="route" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Route A" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pickup Point</label>
-                <input name="pickupPoint" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Main Gate" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bus Number</label>
-                <input name="busNumber" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. KCA 123A" />
-              </div>
-
-              <div className="md:col-span-3 pt-4 border-t border-slate-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Bell size={16} className="text-orange-600" />
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">SMS Enrollment Notifications</h4>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    { id: 'busArrived', label: 'Bus Arrived' },
-                    { id: 'boarded', label: 'Child Boarded' },
-                    { id: 'arrivedSchool', label: 'Arrived School' },
-                    { id: 'dropped', label: 'Child Dropped' }
-                  ].map(notif => (
-                    <label key={notif.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-white hover:border-orange-300 transition-all">
-                      <input 
-                        type="checkbox"
-                        checked={transportNotifs[notif.id as keyof typeof transportNotifs]}
-                        onChange={(e) => setTransportNotifs(p => ({ ...p, [notif.id]: e.target.checked }))}
-                        className="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500"
-                      />
-                      <span className="text-xs font-bold text-slate-600">{notif.label}</span>
-                    </label>
-                  ))}
-                </div>
-                <p className="text-[10px] text-slate-500 mt-3 font-medium flex items-center gap-1.5">
-                  <Bell size={10} />
-                  Parent will receive real-time SMS alerts for the selected events.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* SECTION 7: Fee Invoice / Initial Payment */}
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">

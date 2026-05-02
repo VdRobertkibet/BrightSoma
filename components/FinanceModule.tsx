@@ -41,7 +41,11 @@ import { db, auth } from '../src/firebase';
 import { collection, query, where, onSnapshot, getDocs, addDoc, updateDoc, doc, increment, serverTimestamp, deleteDoc, getDoc } from 'firebase/firestore';
 import { Student, Payment, FeeStructure, PaymentMethod, Expense, CBCGrade, FeeCategory } from '../types';
 
-const FinanceModule: React.FC = () => {
+interface FinanceModuleProps {
+  role?: string | null;
+}
+
+const FinanceModule: React.FC<FinanceModuleProps> = ({ role }) => {
   const [activeTab, setActiveTab] = useState<'collections' | 'expenses' | 'etims' | 'analytics' | 'settings'>('collections');
   const [collectionsSubTab, setCollectionsSubTab] = useState<'graph' | 'quickpay' | 'net' | 'arrears' | 'directory'>('graph');
   const [viewMode, setViewMode] = useState<'Weekly' | 'Termly'>('Termly');

@@ -27,13 +27,13 @@ if (startIndex !== -1 && endIndex !== -1) {
                 <span className="text-4xl font-black text-slate-900 dark:text-white">Ksh 3,000</span>
                 <span className="text-slate-500 dark:text-slate-400 text-sm"> /term</span>
               </div>
-              <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-8 mt-1">Up to 150 Learners</p>
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-8 mt-1">Up to 150 Learners</p>
               
               <ul className="space-y-4 mb-10 flex-1">
-                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> Basic Learner & Staff Mgt</li>
-                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> CBC Assessments & Reports</li>
-                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> Asset Management</li>
-                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> Core Finance Tracking</li>
+                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> Basic Learner & Staff Mgt</li>
+                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> CBC Assessments & Reports</li>
+                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> Asset Management</li>
+                <li className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> Core Finance Tracking</li>
                 <li className="flex items-center gap-3 text-sm text-slate-400 dark:text-slate-600 line-through"><X size={16} className="text-slate-300 dark:text-slate-700 shrink-0" /> Bank Accounts Management</li>
                 <li className="flex items-center gap-3 text-sm text-slate-400 dark:text-slate-600 line-through"><X size={16} className="text-slate-300 dark:text-slate-700 shrink-0" /> Timetabling & Events</li>
                 <li className="flex items-center gap-3 text-sm text-slate-400 dark:text-slate-600 line-through"><X size={16} className="text-slate-300 dark:text-slate-700 shrink-0" /> SMS & Bulk Messaging</li>
@@ -49,8 +49,8 @@ if (startIndex !== -1 && endIndex !== -1) {
             </div>
 
             {/* Professional - Most Popular */}
-            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 border-2 border-orange-500 shadow-2xl shadow-orange-500/10 flex flex-col relative scale-105 z-10 overflow-hidden h-full">
-              <div className="absolute top-0 right-0 bg-orange-500 text-white text-[10px] font-black uppercase px-6 py-2 rounded-bl-2xl tracking-widest">
+            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-10 border-2 border-blue-500 shadow-2xl shadow-blue-500/10 flex flex-col relative scale-105 z-10 overflow-hidden h-full">
+              <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] font-black uppercase px-6 py-2 rounded-bl-2xl tracking-widest">
                 Most Popular
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Professional Kit</h3>
@@ -59,14 +59,14 @@ if (startIndex !== -1 && endIndex !== -1) {
                 <span className="text-4xl font-black text-slate-900 dark:text-white">Ksh 8,000</span>
                 <span className="text-slate-500 dark:text-slate-400 text-sm"> /term</span>
               </div>
-              <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-8 mt-1">Up to 500 Learners</p>
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-8 mt-1">Up to 500 Learners</p>
               
               <ul className="space-y-4 mb-10 flex-1">
-                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-100 font-bold"><TrendingUp size={18} className="text-orange-500 shrink-0" /> Everything in Starter</li>
-                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> Bank Accounts Management</li>
-                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> Timetabling & Events</li>
-                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> SMS & Bulk Messaging</li>
-                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> Students' Health Records</li>
+                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-100 font-bold"><TrendingUp size={18} className="text-blue-500 shrink-0" /> Everything in Starter</li>
+                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> Bank Accounts Management</li>
+                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> Timetabling & Events</li>
+                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> SMS & Bulk Messaging</li>
+                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> Students' Health Records</li>
                 <li className="flex items-center gap-3 text-sm text-slate-400 dark:text-slate-600 line-through"><X size={16} className="text-slate-300 dark:text-slate-700 shrink-0" /> Transport Fleet Tracking</li>
                 <li className="flex items-center gap-3 text-sm text-slate-400 dark:text-slate-600 line-through"><X size={16} className="text-slate-300 dark:text-slate-700 shrink-0" /> Multi-Campus Dashboards</li>
                 <li className="flex items-center gap-3 text-sm text-slate-400 dark:text-slate-600 line-through"><X size={16} className="text-slate-300 dark:text-slate-700 shrink-0" /> Dedicated Account Manager</li>
@@ -74,7 +74,7 @@ if (startIndex !== -1 && endIndex !== -1) {
               
               <button
                 onClick={() => setRegisterEdition('standard')}
-                className="w-full py-4 rounded-2xl font-bold mt-auto bg-orange-600 text-white hover:bg-orange-700 shadow-xl shadow-orange-500/30 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
+                className="w-full py-4 rounded-2xl font-bold mt-auto bg-blue-600 text-white hover:bg-blue-700 shadow-xl shadow-blue-500/30 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
               >
                 <Zap size={18} /> Register Professional Kit
               </button>
@@ -91,13 +91,13 @@ if (startIndex !== -1 && endIndex !== -1) {
                 <span className="text-4xl font-black text-slate-900 dark:text-white">Ksh 15,000</span>
                 <span className="text-slate-500 dark:text-slate-400 text-sm"> /term</span>
               </div>
-              <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-8 mt-1">Unlimited Learners</p>
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-8 mt-1">Unlimited Learners</p>
               
               <ul className="space-y-4 mb-10 flex-1">
-                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200 font-bold"><Award size={18} className="text-orange-500 shrink-0" /> Everything in Professional</li>
-                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> Transport Fleet Tracking</li>
-                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> Multi-Campus Dashboards</li>
-                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-orange-500 shrink-0" /> Custom eTIMS Integration</li>
+                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200 font-bold"><Award size={18} className="text-blue-500 shrink-0" /> Everything in Professional</li>
+                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> Transport Fleet Tracking</li>
+                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> Multi-Campus Dashboards</li>
+                <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> Custom eTIMS Integration</li>
                 <li className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200 font-bold"><CheckCircle2 size={18} className="text-blue-500 shrink-0" /> Dedicated Account Manager</li>
               </ul>
               

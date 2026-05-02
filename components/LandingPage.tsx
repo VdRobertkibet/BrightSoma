@@ -6,7 +6,7 @@ import {
   Mail, Eye, EyeOff, Sparkles, ChevronDown, ChevronRight, ArrowUp,
   BookOpen, BarChart3, Bus, Heart, Package, Calendar, MessageSquare,
   Zap, Globe, Star, Check, Play, Menu, X, Smartphone, Award,
-  Clock, Database, Search, Layout, Bell, MessageCircle
+  Clock, Database, Search, Layout, Bell, MessageCircle, Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from '../src/firebase';
@@ -15,6 +15,7 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfi
 import toast from 'react-hot-toast';
 import DemoOnboardingScreen from './DemoOnboardingScreen';
 import RealRegistrationScreen from './RealRegistrationScreen';
+import { useAuth } from '../hooks/useAuth';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -24,47 +25,50 @@ interface LandingPageProps {
 
 
 const roles = [
-  { role: 'ADMIN' as const, title: 'School Director', description: 'Institutional Oversight And Strategy.', icon: <ShieldCheck size={24} strokeWidth={1.5} />, color: 'text-orange-600 bg-orange-50' },
-  { role: 'TEACHER' as const, title: 'Teacher', description: 'Cbc Assessments And Learner Growth.', icon: <Users size={24} strokeWidth={1.5} />, color: 'text-blue-600 bg-blue-50' },
-  { role: 'PRINCIPAL' as const, title: 'Principal', description: 'Academic Health And Staff Performance.', icon: <GraduationCap size={24} strokeWidth={1.5} />, color: 'text-emerald-600 bg-emerald-50' },
-  { role: 'FINANCE' as const, title: 'Finance Officer', description: 'Fee Collection And Etims Compliance.', icon: <Wallet size={24} strokeWidth={1.5} />, color: 'text-violet-600 bg-violet-50' },
-  { role: 'PLATFORM_ADMIN' as const, title: 'System Owner', description: 'Global Platform Control.', icon: <Activity size={24} strokeWidth={1.5} />, color: 'text-slate-600 bg-slate-50' },
+  { role: 'ADMIN' as const, title: 'School director', description: 'Institutional oversight and strategy.', icon: <ShieldCheck size={24} strokeWidth={1.5} />, color: 'text-orange-600 bg-orange-50' },
+  { role: 'TEACHER' as const, title: 'Teacher', description: 'CBC assessments and learner growth.', icon: <Users size={24} strokeWidth={1.5} />, color: 'text-orange-500 bg-orange-50/50' },
+  { role: 'PRINCIPAL' as const, title: 'Principal', description: 'Academic health and staff performance.', icon: <GraduationCap size={24} strokeWidth={1.5} />, color: 'text-emerald-600 bg-emerald-50' },
+  { role: 'FINANCE' as const, title: 'Finance officer', description: 'Fee collection and eTIMS compliance.', icon: <Wallet size={24} strokeWidth={1.5} />, color: 'text-violet-600 bg-violet-50' },
+  { role: 'PLATFORM_ADMIN' as const, title: 'System owner', description: 'Global platform control.', icon: <Activity size={24} strokeWidth={1.5} />, color: 'text-slate-600 bg-slate-50' },
 ];
 
 const pricingPlans = [
   {
-    name: 'Starter Kit', price: '3,000', period: '/ Month', cap: 'Up To 100 Learners', popular: false,
+    name: 'Starter Kit', price: '3,000', period: '/ Term', cap: 'Up To 100 Learners', popular: false,
     features: ['Learner Directory', 'Cbc Assessment Tools', 'Basic Attendance', 'School Profile', 'Messaging Support'],
     cta: 'Get Started',
   },
   {
-    name: 'Professional', price: '8,000', period: '/ Month', cap: '100-500 Learners', popular: true,
+    name: 'Professional', price: '8,000', period: '/ Term', cap: '100-500 Learners', popular: true,
     features: ['Everything In Starter', 'M-Pesa Fee Collection', 'Etims Receipting', 'Staff Management', 'Communication Hub', 'Academic Analytics', 'Sms & Whatsapp Alerts'],
     cta: 'Most Popular',
   },
   {
-    name: 'Super Dashboard', price: '15,000', period: '/ Month', cap: '500+ Learners', popular: false,
+    name: 'Elite Edition', price: '15,000', period: '/ Term', cap: 'Unlimited Learners', popular: false,
     features: ['Everything In Professional', 'Boarding & Dorms', 'Transport Lifecycle', 'Inventory Control', 'Advanced Analytics', 'Bank Reconciliation', 'Intelligent Notifications'],
     cta: 'Go Super',
   },
 ];
 
 const featureModules = [
-  { icon: <BarChart3 size={24} strokeWidth={1.5} />, name: 'Analytics', desc: 'Real-Time Performance Insights.', color: 'text-orange-600' },
-  { icon: <BookOpen size={24} strokeWidth={1.5} />, name: 'Cbc Engine', desc: 'Automated Grading & Reports.', color: 'text-blue-600' },
-  { icon: <Wallet size={24} strokeWidth={1.5} />, name: 'Financials', desc: 'M-Pesa & Etims Integrated.', color: 'text-emerald-600' },
-  { icon: <MessageCircle size={24} strokeWidth={1.5} />, name: 'Whatsapp', desc: 'Direct School-Parent Links.', color: 'text-violet-600' },
+  { icon: <BarChart3 size={24} strokeWidth={1.5} />, name: 'Analytics', desc: 'Real-time performance insights.', color: 'text-orange-600' },
+  { icon: <BookOpen size={24} strokeWidth={1.5} />, name: 'CBC engine', desc: 'Automated grading and reports.', color: 'text-orange-500' },
+  { icon: <Wallet size={24} strokeWidth={1.5} />, name: 'Financials', desc: 'M-Pesa and eTIMS integrated.', color: 'text-emerald-600' },
+  { icon: <MessageCircle size={24} strokeWidth={1.5} />, name: 'WhatsApp', desc: 'Direct school-parent links.', color: 'text-orange-400' },
 ];
 
 const testimonies = [
-  { name: 'Mary Njenga', role: 'Principal', quote: 'Cbc Marks Are Now Automated, Saving Teachers Hours.' },
-  { name: 'James Kamau', role: 'Director', quote: 'M-Pesa Collection Has Improved Our Cashflow Significantly.' },
-  { name: 'Sarah Wambui', role: 'Finance', quote: 'The Etims Integration Is A Lifesaver For Our Tax Compliance.' },
+  { name: 'Mary Njenga', role: 'Principal', quote: 'CBC marks are now automated, saving teachers hours.' },
+  { name: 'James Kamau', role: 'Director', quote: 'M-Pesa collection has improved our cashflow significantly.' },
+  { name: 'Sarah Wambui', role: 'Finance', quote: 'The eTIMS integration is a lifesaver for our tax compliance.' },
 ];
 
 export default function LandingPage({ isDarkMode }: LandingPageProps) {
   const navigate = useNavigate();
+  const { setResolvedProfile } = useAuth();
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [showSignInMenu, setShowSignInMenu] = useState(false);
+  const signInMenuRef = useRef<HTMLDivElement>(null);
 
   
   const directorImg = "/assets/director.png";
@@ -73,33 +77,143 @@ export default function LandingPage({ isDarkMode }: LandingPageProps) {
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 500);
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      if (signInMenuRef.current && !signInMenuRef.current.contains(event.target as Node)) {
+        setShowSignInMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
 
   const navLinks = ['Features', 'Pricing', 'Testimonials'];
+
+  const [showRegistration, setShowRegistration] = useState(false);
+  const [selectedEdition, setSelectedEdition] = useState<'starter' | 'professional' | 'elite'>('starter');
+
+  const roles = [
+    { role: 'Admin', title: 'Director Portal', description: 'School management and settings', icon: <Shield />, color: 'bg-orange-600' },
+    { role: 'Teacher', title: 'Teacher Portal', description: 'Classroom and learner management', icon: <GraduationCap />, color: 'bg-orange-600' },
+    { role: 'Principal', title: 'Principal Portal', description: 'Academic and staff oversight', icon: <BookOpen />, color: 'bg-orange-600' },
+    { role: 'Finance', title: 'Finance Portal', description: 'Fees and institutional accounting', icon: <Wallet />, color: 'bg-orange-600' },
+    { role: 'Platform_Admin', title: 'System Owner', description: 'Platform-wide configuration', icon: <Briefcase />, color: 'bg-slate-900' },
+  ];
+
+  if (showRegistration) {
+    return (
+      <RealRegistrationScreen 
+        edition={selectedEdition}
+        onBack={() => setShowRegistration(false)}
+        setResolvedProfile={setResolvedProfile}
+        onStartRegistration={(modules) => {
+          console.log("Starting registration with modules:", modules);
+          setShowRegistration(false);
+          toast.success("Welcome aboard! Let's get your school set up.");
+        }}
+      />
+    );
+  }
 
   return (
     <div className="relative min-h-screen bg-white text-slate-800 font-sans selection:bg-orange-100 selection:text-orange-900 overflow-x-hidden">
       
       {/* ─── NAVIGATION ─────────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 z-[100] bg-white/70 backdrop-blur-xl border-b border-slate-100 h-20">
-        <div className="w-full px-2 h-full flex items-center justify-between">
-          <div className="flex items-center gap-3 group cursor-pointer" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
-            <div className="w-10 h-10 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/10">
-              <SchoolIcon size={22} className="text-white" strokeWidth={1.5} />
+        <div className="max-w-7xl mx-auto px-6 h-full flex items-center">
+          {/* Logo Area */}
+          <div className="w-48 flex-shrink-0">
+            <div className="flex items-center gap-3 group cursor-pointer" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
+              <div className="w-10 h-10 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/10">
+                <SchoolIcon size={22} className="text-white" strokeWidth={1.5} />
+              </div>
+              <span className="text-xl font-medium tracking-tight text-slate-900">Bright<span className="text-orange-500">Soma</span></span>
             </div>
-            <span className="text-xl font-medium tracking-tight text-slate-900">Bright<span className="text-orange-500">Soma</span></span>
           </div>
 
-          <nav className="hidden md:flex items-center gap-10">
+          {/* Centered Navigation */}
+          <nav className="hidden md:flex flex-1 items-center justify-center gap-10">
             {navLinks.map(l => (
               <a key={l} href={`#${l.toLowerCase()}`} className="text-sm font-medium text-slate-500 hover:text-orange-600 transition-colors tracking-wider">{l}</a>
             ))}
+            
+            <div className="relative" ref={signInMenuRef}>
+              <button 
+                onClick={() => setShowSignInMenu(!showSignInMenu)} 
+                className={`flex items-center gap-2 text-sm font-bold transition-all ${
+                  showSignInMenu ? 'text-orange-600' : 'text-slate-900 hover:text-orange-600'
+                }`}
+              >
+                Sign In
+                <ChevronDown size={14} className={`transition-transform duration-300 ${showSignInMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {showSignInMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                    className="absolute top-full left-1/2 -translate-x-1/2 mt-6 w-[640px] bg-white rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-100 p-8 z-[110] overflow-hidden"
+                  >
+                    {/* Background Decor */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 rounded-bl-[4rem] pointer-events-none" />
+                    
+                    <div className="mb-8 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] mb-1">Institutional Gateways</p>
+                        <h3 className="text-xl font-black text-slate-900 tracking-tight">Select your portal</h3>
+                      </div>
+                      <Sparkles size={20} className="text-orange-200" />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {roles.map((item, i) => (
+                        <button
+                          key={item.role}
+                          onClick={() => {
+                            setShowSignInMenu(false);
+                            navigate(`/login/${item.role.toLowerCase() === 'admin' ? 'director' : item.role.toLowerCase()}`);
+                          }}
+                          className="group flex items-center gap-4 p-4 rounded-2xl bg-slate-50 hover:bg-white hover:shadow-xl hover:shadow-orange-500/5 border border-transparent hover:border-orange-100 transition-all text-left"
+                        >
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${item.color} shadow-lg shadow-orange-500/20 group-hover:scale-110 transition-transform shrink-0`}>
+                             <div className="text-white flex items-center justify-center">
+                               {React.cloneElement(item.icon as React.ReactElement, { size: 22, strokeWidth: 2, className: "text-white" })}
+                             </div>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-900 group-hover:text-orange-600 transition-colors">{item.title}</p>
+                            <p className="text-[9px] text-slate-500 font-medium line-clamp-1">{item.description}</p>
+                          </div>
+                          <ChevronRight size={14} className="ml-auto text-slate-300 group-hover:text-orange-500 transition-colors" />
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between">
+                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Secure Institutional Access</p>
+                       <button 
+                         onClick={() => { setShowSignInMenu(false); navigate('/signin'); }}
+                         className="text-[9px] font-black text-orange-600 uppercase tracking-widest hover:translate-x-1 transition-transform flex items-center gap-1.6"
+                       >
+                         Gateway Grid <ArrowRight size={12} />
+                       </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </nav>
 
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/signin')} className="px-6 py-2.5 bg-slate-900 text-white rounded-full text-xs font-medium tracking-widest hover:bg-orange-600 transition-all active:scale-95 shadow-lg shadow-slate-900/10">Sign In</button>
+          {/* Right Spacing / CTA Area */}
+          <div className="w-48 hidden md:flex justify-end">
+             <button onClick={() => { document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' }); }} className="px-5 py-2 bg-slate-900 text-white rounded-full text-[10px] font-bold tracking-widest hover:bg-orange-600 transition-all active:scale-95">Get Started</button>
           </div>
 
         </div>
@@ -113,14 +227,14 @@ export default function LandingPage({ isDarkMode }: LandingPageProps) {
                <Sparkles size={14} strokeWidth={1.5} /> The Standard For Kenyan Academies
             </div>
             <h1 className="text-6xl md:text-8xl font-medium tracking-tighter leading-[0.9] text-slate-900 mb-10">
-              Education<br />Management <span className="text-orange-500 italic">Redefined.</span>
+              Education<br />management <span className="text-orange-500 italic">redefined.</span>
             </h1>
             <p className="text-xl text-slate-500 font-medium max-w-xl leading-relaxed mb-12">
-              BrightSoma Is Built For The Kenyan Context—Automating Cbc Assessments, M-Pesa Fee Collections, And School Financials In One Clean Interface.
+              BrightSoma is built for the Kenyan context—automating CBC assessments, M-Pesa fee collections, and school financials in one clean interface.
             </p>
             <div className="flex flex-wrap gap-4">
-               <button onClick={() => navigate('/signin')} className="px-10 py-5 bg-orange-600 text-white rounded-2xl text-xs font-medium tracking-[0.2em] hover:shadow-2xl hover:shadow-orange-200 transition-all active:scale-95">Enroll Your Institution</button>
-               <button className="px-10 py-5 border border-slate-200 rounded-2xl text-xs font-medium tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center gap-2">Watch Demo <Play size={14} fill="currentColor" /></button>
+               <button onClick={() => { document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' }); }} className="px-10 py-5 bg-orange-600 text-white rounded-2xl text-xs font-medium tracking-wide hover:shadow-2xl hover:shadow-orange-200 transition-all active:scale-95">Enroll your institution</button>
+               <button className="px-10 py-5 border border-slate-200 rounded-2xl text-xs font-medium tracking-wide hover:bg-slate-50 transition-all flex items-center gap-2">Watch demo <Play size={14} fill="currentColor" /></button>
             </div>
 
           </motion.div>
@@ -140,8 +254,8 @@ export default function LandingPage({ isDarkMode }: LandingPageProps) {
       <section id="features" className="py-32 bg-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-24">
-            <h2 className="text-4xl md:text-6xl font-medium tracking-tight text-slate-900 mb-6">Smart Features, <span className="text-orange-500 italic">One Interface.</span></h2>
-            <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">Data-Driven Decisions Start With Integrated Modules That Talk To Each Other.</p>
+            <h2 className="text-4xl md:text-6xl font-medium tracking-tight text-slate-900 mb-6">Smart features, <span className="text-orange-500 italic">one interface.</span></h2>
+            <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">Data-driven decisions start with integrated modules that talk to each other.</p>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-20 items-center">
@@ -167,11 +281,11 @@ export default function LandingPage({ isDarkMode }: LandingPageProps) {
                            <div className="text-lg font-medium text-orange-950">92% Met</div>
                         </div>
                      </div>
-                     <div className="p-5 bg-blue-50 rounded-3xl space-y-3">
-                        <Users className="text-blue-600" size={20} strokeWidth={1.5} />
+                     <div className="p-5 bg-slate-50 rounded-3xl space-y-3">
+                        <Users className="text-slate-600" size={20} strokeWidth={1.5} />
                         <div>
-                           <div className="text-[9px] font-medium text-blue-600/60 uppercase tracking-widest">Learners</div>
-                           <div className="text-lg font-medium text-blue-950">Active Now</div>
+                           <div className="text-[9px] font-medium text-slate-600/60 uppercase tracking-widest">Learners</div>
+                           <div className="text-lg font-medium text-slate-950">Active Now</div>
                         </div>
                      </div>
                   </div>
@@ -232,21 +346,21 @@ export default function LandingPage({ isDarkMode }: LandingPageProps) {
       <section id="pricing" className="py-32 px-6 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
-             <h2 className="text-4xl md:text-6xl font-medium tracking-tight text-slate-900 mb-6">Simple, Fair Pricing.</h2>
-             <p className="text-lg text-slate-500 font-medium italic mb-12">Pay Monthly For Predictable School Growth.</p>
+             <h2 className="text-4xl md:text-6xl font-medium tracking-tight text-slate-900 mb-6">Simple, fair pricing.</h2>
+             <p className="text-lg text-slate-500 font-medium italic mb-12">Pay per term for predictable school growth.</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {pricingPlans.map((plan, i) => (
               <div key={i} className={`relative p-12 rounded-[3.5rem] border ${plan.popular ? 'border-orange-500 shadow-2xl shadow-orange-100' : 'border-slate-100'} transition-all hover:-translate-y-2 duration-500`}>
-                {plan.popular && <div className="absolute top-8 right-8 bg-orange-600 text-white text-[9px] font-medium uppercase tracking-widest px-3 py-1 rounded-full">Most Popular</div>}
+                {plan.popular && <div className="absolute top-8 right-8 bg-orange-600 text-white text-[9px] font-medium px-3 py-1 rounded-full">Most popular</div>}
                 <div className="mb-10">
-                   <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400 mb-6">{plan.name}</h3>
+                   <h3 className="text-xs font-medium text-slate-400 mb-6">{plan.name}</h3>
                    <div className="flex items-baseline gap-2">
                       <span className="text-5xl font-medium text-slate-900 tracking-tighter">Kes {plan.price}</span>
-                      <span className="text-sm font-medium text-slate-400 uppercase tracking-widest">{plan.period}</span>
+                      <span className="text-sm font-medium text-slate-400">{plan.period}</span>
                    </div>
-                   <p className="mt-4 text-xs font-medium text-orange-600 uppercase tracking-widest">{plan.cap}</p>
+                   <p className="mt-4 text-xs font-medium text-orange-600">{plan.cap}</p>
                 </div>
                 <ul className="space-y-4 mb-12 border-t border-slate-50 pt-8">
                   {plan.features.map((f, j) => (
@@ -255,7 +369,15 @@ export default function LandingPage({ isDarkMode }: LandingPageProps) {
                     </li>
                   ))}
                 </ul>
-                <button className={`w-full py-5 rounded-2xl text-xs font-medium uppercase tracking-[0.2em] transition-all active:scale-95 ${plan.popular ? 'bg-orange-600 text-white shadow-xl shadow-orange-200' : 'bg-slate-900 text-white'}`}>{plan.cta}</button>
+                <button 
+                  onClick={() => { 
+                    setSelectedEdition(plan.name.toLowerCase().includes('starter') ? 'starter' : plan.name.toLowerCase().includes('professional') ? 'professional' : 'elite');
+                    setShowRegistration(true);
+                  }}
+                  className={`w-full py-5 rounded-2xl text-xs font-medium transition-all active:scale-95 ${plan.popular ? 'bg-orange-600 text-white shadow-xl shadow-orange-200' : 'bg-slate-900 text-white'}`}
+                >
+                  {plan.cta}
+                </button>
               </div>
             ))}
           </div>
@@ -276,7 +398,7 @@ export default function LandingPage({ isDarkMode }: LandingPageProps) {
                       <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-medium text-orange-600 border border-slate-100 shadow-sm">{t.name[0]}</div>
                       <div>
                          <p className="text-sm font-medium text-slate-900">{t.name}</p>
-                         <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{t.role}</p>
+                         <p className="text-[10px] font-medium text-slate-400">{t.role}</p>
                       </div>
                    </div>
                 </div>
@@ -295,9 +417,9 @@ export default function LandingPage({ isDarkMode }: LandingPageProps) {
                    <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center">
                       <SchoolIcon size={18} className="text-white" strokeWidth={1.5} />
                    </div>
-                   <span className="text-sm font-medium tracking-[0.2em]">Bright<span className="text-orange-500">Soma</span></span>
+                    <span className="text-sm font-medium">Bright<span className="text-orange-500">Soma</span></span>
                 </div>
-                <p className="text-xs text-slate-400 font-medium leading-relaxed tracking-wider">The Operating System For Modern Kenyan Education. Compliant, Integrated, And Scalable.</p>
+                <p className="text-xs text-slate-400 font-medium leading-relaxed">The operating system for modern Kenyan education. Compliant, integrated, and scalable.</p>
                 <div className="flex gap-4">
                    <Globe size={18} className="text-slate-300" strokeWidth={1.5} />
                    <Database size={18} className="text-slate-300" strokeWidth={1.5} />
@@ -331,7 +453,7 @@ export default function LandingPage({ isDarkMode }: LandingPageProps) {
              </div>
           </div>
           <div className="text-center pt-10 border-t border-slate-50">
-             <p className="text-[9px] font-medium text-slate-300 uppercase tracking-[0.5em]">Built For The Excellence Of Kenyan Learners.</p>
+             <p className="text-[9px] font-medium text-slate-300">Built for the excellence of Kenyan learners.</p>
           </div>
         </div>
       </footer>
