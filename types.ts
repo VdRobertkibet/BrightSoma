@@ -1,5 +1,5 @@
 
-export type PerformanceLevel = 'EE' | 'ME' | 'AE' | 'BE';
+export type PerformanceLevel = 'EE' | 'ME' | 'AE' | 'BE' | 'EE1' | 'EE2' | 'ME1' | 'ME2' | 'AE1' | 'AE2' | 'BE1' | 'BE2';
 
 export enum CBCGrade {
   PP1 = 'PP1',
@@ -141,6 +141,8 @@ export interface Assessment {
   strand: string;
   level: PerformanceLevel;
   score?: number;
+  percentage?: number;
+  pnt?: number;
   term: string;
   year: number;
   remarks: string;

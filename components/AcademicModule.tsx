@@ -137,16 +137,30 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
     if (staffDocSnap.exists()) schoolId = staffDocSnap.data().schoolId;
 
     const existing = assessments.find(a => a.studentId === studentId && a.learningArea === learningArea);
-    const assessmentData = { schoolId, studentId, learningArea, level, term: 'Term 1', year: 2026, strand: 'General', remarks: existing?.remarks || '' };
 
     try {
-      if (existing) {
-        await updateDoc(doc(db, 'assessments', existing.id), assessmentData);
-      } else if (level) {
-        await addDoc(collection(db, 'assessments'), assessmentData);
+      if (!level) {
+        // Clear / delete
+        if (existing) {
+          await deleteDoc(doc(db, 'assessments', existing.id));
+        }
+        // Optimistic local update
+        setAssessments(prev => prev.filter(a => !(a.studentId === studentId && a.learningArea === learningArea)));
+      } else {
+        const assessmentData = {
+          schoolId, studentId, learningArea, level,
+          term: 'Term 1', year: 2026, strand: 'General',
+          remarks: existing?.remarks || ''
+        };
+        if (existing) {
+          await updateDoc(doc(db, 'assessments', existing.id), assessmentData);
+        } else {
+          await addDoc(collection(db, 'assessments'), assessmentData);
+        }
       }
     } catch (error) {
       console.error('Error saving assessment:', error);
+      toast.error('Failed to save assessment');
     }
   };
 
@@ -266,54 +280,99 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
         </div>
       )}
 
-      {/* Learner Marks Tab */}
       {activeTab === 'assessments' && (
         <div className="pt-4">
-            <h3 className="text-lg font-bold text-black dark:text-white">Cbc Assessments</h3>
+          <h3 className="text-lg font-bold text-black dark:text-white mb-4">CBC Assessments</h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 font-medium">
+            Click a level button to mark · Click the same button again to clear · 
+            <span className="ml-2 inline-flex gap-1 items-center">
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[9px] font-bold">EE</span>Exceeds &nbsp;
+              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[9px] font-bold">ME</span>Meets &nbsp;
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">AE</span>Approaching &nbsp;
+              <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded text-[9px] font-bold">BE</span>Below
+            </span>
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800">
-                  <th className="p-4 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 tracking-wider">Learner</th>
-                  {getSubjectsForGrade(selectedGrade).slice(0, 5).map(la => (
-                    <th key={la} className="p-4 text-center text-[10px] font-bold text-slate-500 dark:text-slate-300 tracking-wider">{la}</th>
+                <tr className="bg-slate-900 text-white">
+                  <th className="p-3 text-left text-[9px] font-bold tracking-wider rounded-tl-xl sticky left-0 bg-slate-900 z-10">Learner</th>
+                  {getSubjectsForGrade(selectedGrade).map(la => (
+                    <th key={la} className="p-2 text-center text-[8px] font-bold tracking-wider whitespace-nowrap max-w-[100px]">
+                      <span className="block truncate">{la}</span>
+                    </th>
                   ))}
-                  <th className="p-4 text-right text-[10px] font-bold text-slate-500 dark:text-slate-300 tracking-wider">Builder</th>
+                  <th className="p-3 text-right text-[9px] font-bold tracking-wider rounded-tr-xl">Report</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {students.filter(s => s.grade === selectedGrade).map(student => (
-                  <tr key={student.id}>
-                    <td className="p-4">
-                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{student.name}</p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">{student.admissionNumber}</p>
+                {students.filter(s => s.grade === selectedGrade).map((student, si) => (
+                  <tr key={student.id} className={si % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/50 dark:bg-slate-800/30'}>
+                    <td className="p-3 sticky left-0 bg-inherit z-10 min-w-[140px]">
+                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{student.name}</p>
+                      <p className="text-[9px] text-slate-400">{student.admissionNumber}</p>
                     </td>
-                    {getSubjectsForGrade(selectedGrade).slice(0, 5).map(la => {
+                    {getSubjectsForGrade(selectedGrade).map(la => {
                       const assessment = assessments.find(a => a.studentId === student.id && a.learningArea === la);
+                      const currentLevel = assessment?.level || '';
+                      const baseOf = (l: string) => l.slice(0, 2); // 'EE1' -> 'EE'
+                      
+                      const SUB_LEVELS: { label: string; base: string; num: string; activeClass: string; hoverClass: string }[] = [
+                        { label: 'EE1', base: 'EE', num: '1', activeClass: 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-200 shadow-lg', hoverClass: 'hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700' },
+                        { label: 'EE2', base: 'EE', num: '2', activeClass: 'bg-emerald-400 text-white border-emerald-400 shadow-emerald-100 shadow-md', hoverClass: 'hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-600' },
+                        { label: 'ME1', base: 'ME', num: '1', activeClass: 'bg-blue-600 text-white border-blue-600 shadow-blue-200 shadow-lg', hoverClass: 'hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700' },
+                        { label: 'ME2', base: 'ME', num: '2', activeClass: 'bg-blue-400 text-white border-blue-400 shadow-blue-100 shadow-md', hoverClass: 'hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600' },
+                        { label: 'AE1', base: 'AE', num: '1', activeClass: 'bg-amber-500 text-white border-amber-500 shadow-amber-200 shadow-lg', hoverClass: 'hover:bg-amber-50 hover:border-amber-400 hover:text-amber-700' },
+                        { label: 'AE2', base: 'AE', num: '2', activeClass: 'bg-amber-300 text-white border-amber-300 shadow-amber-100 shadow-md', hoverClass: 'hover:bg-amber-50 hover:border-amber-300 hover:text-amber-600' },
+                        { label: 'BE1', base: 'BE', num: '1', activeClass: 'bg-rose-600 text-white border-rose-600 shadow-rose-200 shadow-lg', hoverClass: 'hover:bg-rose-50 hover:border-rose-400 hover:text-rose-700' },
+                        { label: 'BE2', base: 'BE', num: '2', activeClass: 'bg-rose-400 text-white border-rose-400 shadow-rose-100 shadow-md', hoverClass: 'hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600' },
+                      ];
+
                       return (
-                      <td key={la} className="p-4 text-center">
-                        <select value={assessment?.level || ''} onChange={e => handleAssessmentChange(student.id, la, e.target.value)}
-                          className={`text-[10px] font-bold px-2 py-1 rounded border outline-none transition-all ${assessment?.level === 'EE' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/30 text-orange-600 dark:text-orange-400' : assessment?.level === 'ME' ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/30 text-orange-600 dark:text-orange-400' : assessment?.level === 'AE' ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/30 text-amber-600 dark:text-amber-400' : assessment?.level === 'BE' ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/30 text-rose-600 dark:text-rose-450' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'}`}>
-                          <option value="" className="text-black dark:text-white bg-white dark:bg-slate-800">-</option>
-                          <option value="EE" className="text-orange-600 dark:text-orange-400 bg-white dark:bg-slate-800">EE</option>
-                          <option value="ME" className="text-orange-600 dark:text-orange-400 bg-white dark:bg-slate-800">ME</option>
-                          <option value="AE" className="text-amber-600 dark:text-amber-400 bg-white dark:bg-slate-800">AE</option>
-                          <option value="BE" className="text-rose-600 dark:text-rose-400 bg-white dark:bg-slate-800">BE</option>
-                        </select>
-                      </td>
+                        <td key={la} className="p-1.5 text-center">
+                          <div className="flex flex-wrap gap-0.5 justify-center max-w-[170px]">
+                            {SUB_LEVELS.map(sl => {
+                              const isActive = currentLevel === sl.label;
+                              return (
+                                <button
+                                  key={sl.label}
+                                  onClick={() => handleAssessmentChange(
+                                    student.id, la,
+                                    isActive ? '' : sl.label
+                                  )}
+                                  title={isActive ? `Clear ${sl.label}` : `Set ${sl.label}`}
+                                  className={`text-[8px] font-black px-1.5 py-0.5 rounded border transition-all duration-150 ${
+                                    isActive
+                                      ? sl.activeClass
+                                      : `bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 ${sl.hoverClass}`
+                                  }`}
+                                >
+                                  {sl.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </td>
                       );
                     })}
-                    <td className="p-4 text-right">
-                      <button 
+                    <td className="p-3 text-right">
+                      <button
                         onClick={() => handleOpenReport(student)}
                         className="p-2 hover:bg-orange-50 dark:hover:bg-slate-700 text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 rounded-lg transition-colors group"
                         title="Open report builder"
                       >
-                        <Palette size={18} className="group-hover:scale-110 transition-transform" />
+                        <Palette size={16} className="group-hover:scale-110 transition-transform" />
                       </button>
                     </td>
                   </tr>
                 ))}
+                {students.filter(s => s.grade === selectedGrade).length === 0 && (
+                  <tr>
+                    <td colSpan={getSubjectsForGrade(selectedGrade).length + 2} className="py-16 text-center text-slate-400 text-sm font-semibold">
+                      No learners enrolled in {selectedGrade} yet.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

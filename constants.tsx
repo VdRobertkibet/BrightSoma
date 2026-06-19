@@ -17,7 +17,13 @@ import {
   HeartPulse,
   Landmark,
   Briefcase,
-  GraduationCap
+  GraduationCap,
+  Activity,
+  CreditCard,
+  Phone,
+  FileText,
+  Library,
+  Banknote
 } from 'lucide-react';
 
 import { CBCGrade, PerformanceLevel } from './types';
@@ -69,7 +75,6 @@ export const JUNIOR_SECONDARY_LEARNING_AREAS = [
   'Pre-Technical Studies',
   'Agriculture & Nutrition',
   'Religious Education',
-  'Life Skills'
 ];
 
 export const FEE_CATEGORIES = [
@@ -88,21 +93,44 @@ export const NAVIGATION_ITEMS = [
   { id: 'dashboard', label: 'School Dashboard', icon: <LayoutDashboard size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
   { id: 'teacher', label: 'Teachers portal', icon: <LayoutDashboard size={20} />, roles: ['TEACHER'] },
   { id: 'students', label: 'Students & classes', icon: <Users size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER'] },
+  { id: 'attendance-register', label: 'Attendance', icon: <Users size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER'] },
   { id: 'timetable', label: 'Timetable', icon: <Calendar size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER'] },
-  { id: 'finance', label: 'Finance & Payments', icon: <Wallet size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'FINANCE', 'TEACHER'] },
+  { id: 'finance', label: 'Fees, Finance & Payments', icon: <Wallet size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'FINANCE', 'TEACHER'] },
+  { id: 'fee-per-class', label: 'Fee per Class', icon: <Users size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'FINANCE'] },
   { id: 'bank', label: 'Bank accounts', icon: <Landmark size={20} />, roles: ['ADMIN', 'DIRECTOR', 'FINANCE'] },
   { id: 'academics', label: 'CBC Assessments', icon: <BookOpen size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER'] },
   { id: 'boarding', label: 'Boarding', icon: <Home size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
-  { id: 'transport', label: 'Transport', icon: <Bus size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
+  { id: 'transport', label: 'Transport Services', icon: <Bus size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER'] },
   { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'PLATFORM_ADMIN', 'SUPER_ADMIN'] },
   { id: 'finance-analytics', label: 'Finance analytics', icon: <Wallet size={20} />, roles: ['PLATFORM_ADMIN', 'SUPER_ADMIN'] },
   { id: 'communication', label: 'Communication', icon: <MessageSquare size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER', 'PLATFORM_ADMIN', 'SUPER_ADMIN'] },
   { id: 'health', label: "Students' Health", icon: <HeartPulse size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
   { id: 'inventory', label: 'Inventory', icon: <Package size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
   { id: 'admin', label: 'Staff management', icon: <GraduationCap size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
-  { id: 'events', label: 'Events', icon: <Calendar size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
-  { id: 'assets', label: 'Assets', icon: <Briefcase size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
+  { id: 'payroll', label: 'Payroll & HR', icon: <Banknote size={20} />, roles: ['ADMIN', 'DIRECTOR', 'FINANCE', 'PLATFORM_ADMIN', 'SUPER_ADMIN'] },
+  { id: 'events', label: 'News & Events', icon: <Calendar size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
+  { id: 'assets', label: 'Assets & Procurement', icon: <Briefcase size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
+  { id: 'library', label: 'Library Management', icon: <Library size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL', 'TEACHER', 'PLATFORM_ADMIN', 'SUPER_ADMIN'] },
   { id: 'profile', label: 'School Profile', icon: <School size={20} />, roles: ['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'] },
+  
+  // Parent Portal Navigation
+  { id: 'parent-dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, roles: ['PARENT'] },
+  { id: 'parent-session', label: 'Session Reporting', icon: <Activity size={20} />, roles: ['PARENT'] },
+  { id: 'parent-communications', label: 'Communications & Events', icon: <MessageSquare size={20} />, roles: ['PARENT'] },
+  { id: 'parent-fees', label: 'Fees', icon: <Wallet size={20} />, roles: ['PARENT'] },
+  { id: 'parent-assignments', label: 'Assignments', icon: <BookOpen size={20} />, roles: ['PARENT'] },
+  { id: 'parent-exam-report', label: 'Exam Report', icon: <FileText size={20} />, roles: ['PARENT'] },
+  { id: 'parent-timetable', label: 'Time Table', icon: <Calendar size={20} />, roles: ['PARENT'] },
+  { id: 'parent-revision', label: 'Revision Materials', icon: <BookOpen size={20} />, roles: ['PARENT'] },
+  { id: 'parent-exam-schedule', label: 'Exam Schedule', icon: <Calendar size={20} />, roles: ['PARENT'] },
+  { id: 'parent-deferment', label: 'Deferment', icon: <ShieldCheck size={20} />, roles: ['PARENT'] },
+  { id: 'parent-subject-registration', label: 'Subject Registration', icon: <BookOpen size={20} />, roles: ['PARENT'] },
+  { id: 'parent-payment-plans', label: 'Payment Plans', icon: <CreditCard size={20} />, roles: ['PARENT'] },
+  { id: 'parent-assessment', label: 'Assessment Reports', icon: <BarChart3 size={20} />, roles: ['PARENT'] },
+  { id: 'parent-performance', label: 'Comprehensive Performance Reports', icon: <BarChart3 size={20} />, roles: ['PARENT'] },
+  { id: 'parent-attendance', label: 'Attendance', icon: <Users size={20} />, roles: ['PARENT'] },
+  { id: 'parent-health', label: 'Student Health', icon: <HeartPulse size={20} />, roles: ['PARENT'] },
+  { id: 'parent-contact', label: 'Contact', icon: <Phone size={20} />, roles: ['PARENT'] },
 ];
 
 export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -141,8 +169,16 @@ export const CONTRACT_TYPES = [
   'Internship'
 ];
 
+const PARENT_MODULES = [
+  'parent-dashboard', 'parent-session', 'parent-communications', 'parent-fees', 
+  'parent-assignments', 'parent-exam-report', 'parent-timetable', 'parent-revision', 
+  'parent-exam-schedule', 'parent-deferment', 'parent-subject-registration', 
+  'parent-payment-plans', 'parent-assessment', 'parent-performance', 'parent-attendance', 
+  'parent-health', 'parent-contact'
+];
+
 export const EDITION_MODULES = {
-  starter:      ['dashboard', 'students', 'class-management', 'academics', 'finance', 'attendance-register', 'profile', 'admin', 'teacher', 'assets'],
-  professional: ['dashboard', 'students', 'class-management', 'academics', 'finance', 'attendance-register', 'profile', 'admin', 'teacher', 'assets', 'bank', 'timetable', 'communication', 'health', 'events'],
-  elite:        ['dashboard', 'students', 'class-management', 'academics', 'finance', 'attendance-register', 'profile', 'admin', 'teacher', 'assets', 'bank', 'timetable', 'communication', 'health', 'events', 'boarding', 'mpesa', 'transport', 'inventory'],
+  starter:      ['dashboard', 'students', 'class-management', 'academics', 'finance', 'fee-per-class', 'attendance-register', 'profile', 'admin', 'teacher', 'assets', 'events', 'transport', 'library', ...PARENT_MODULES],
+  professional: ['dashboard', 'students', 'class-management', 'academics', 'finance', 'fee-per-class', 'attendance-register', 'profile', 'admin', 'teacher', 'assets', 'bank', 'timetable', 'communication', 'health', 'events', 'transport', 'library', 'payroll', ...PARENT_MODULES],
+  elite:        ['dashboard', 'students', 'class-management', 'academics', 'finance', 'fee-per-class', 'attendance-register', 'profile', 'admin', 'teacher', 'assets', 'bank', 'timetable', 'communication', 'health', 'events', 'boarding', 'mpesa', 'transport', 'inventory', 'library', 'payroll', ...PARENT_MODULES],
 } as const;
