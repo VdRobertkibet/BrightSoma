@@ -87,6 +87,15 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [smsCopied, setSmsCopied] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null); // 'pct-{la}' | 'pnt-{la}'
+
+  // Close custom dropdowns on outside click
+  useEffect(() => {
+    if (!openDropdown) return;
+    const close = () => setOpenDropdown(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [openDropdown]);
 
   const isSample = currentStudent.id === 'sample-123';
   const reportId = `${currentStudent.id}_Term1_2026`;
@@ -313,76 +322,96 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
   return (
     <div className="fixed inset-0 z-[1000] flex flex-col bg-slate-50 w-full h-full overflow-y-auto animate-in fade-in duration-200">
 
-      {/* ── SMS Card Modal ─────────────────────────────────────── */}
+      {/* ── SMS Slide-Up Card ─────────────────────────────────── */}
       {showSmsModal && (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Card Header */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-500 p-6 text-white">
+        <div
+          className="fixed inset-0 z-[1100] flex flex-col justify-end sm:justify-center sm:items-center sm:p-4"
+          style={{ background: 'rgba(0,0,0,0.55)' }}
+          onClick={() => setShowSmsModal(false)}
+        >
+          <div
+            className="w-full sm:max-w-lg rounded-t-[2.5rem] sm:rounded-[2rem] overflow-hidden shadow-2xl"
+            style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.1,.65,1) both' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header — BrightSoma brand orange */}
+            <div className="bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 px-6 pt-6 pb-5 text-white">
+              {/* Drag handle */}
+              <div className="w-10 h-1 bg-white/40 rounded-full mx-auto mb-4 sm:hidden" />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center">
-                    <MessageSquare size={20} />
+                  <div className="w-11 h-11 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                    <MessageSquare size={22} />
                   </div>
                   <div>
-                    <h3 className="font-black text-sm">Performance SMS</h3>
-                    <p className="text-[10px] text-emerald-100 font-medium">{currentStudent.name} · {parentPhone || 'No phone number'}</p>
+                    <h3 className="font-black text-base tracking-tight">Performance SMS</h3>
+                    <p className="text-[11px] text-orange-100 font-semibold mt-0.5">{currentStudent.name} &nbsp;·&nbsp; {parentPhone || <span className="opacity-60 italic">No phone saved</span>}</p>
                   </div>
                 </div>
-                <button onClick={() => setShowSmsModal(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+                <button onClick={() => setShowSmsModal(false)} className="p-2.5 hover:bg-white/20 rounded-xl transition-colors">
                   <X size={18} />
                 </button>
               </div>
             </div>
 
-            {/* Message Preview */}
-            <div className="p-6">
-              <p className="text-[9px] font-black text-slate-400 tracking-widest mb-2">MESSAGE PREVIEW</p>
-              <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-[11px] text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap leading-relaxed max-h-[260px] overflow-y-auto">
-                {smsText}
+            {/* Body */}
+            <div className="bg-white px-6 pt-5 pb-6 space-y-4">
+              {/* Preview */}
+              <div>
+                <p className="text-[9px] font-black text-slate-400 tracking-widest mb-1.5">MESSAGE PREVIEW</p>
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-[11px] text-slate-700 font-medium whitespace-pre-wrap leading-relaxed max-h-52 overflow-y-auto">
+                  {smsText}
+                </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="mt-4 grid grid-cols-1 gap-2.5">
-                {/* Copy to Clipboard */}
+              {/* Actions */}
+              <div className="space-y-2.5">
+                {/* Copy — primary for PC */}
                 <button
                   onClick={handleCopy}
-                  className={`flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-bold text-sm transition-all ${smsCopied ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                  className={`flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-[.98] ${
+                    smsCopied
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200'
+                      : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+                  }`}
                 >
                   {smsCopied ? <CheckCircle2 size={18} /> : <Copy size={18} />}
-                  {smsCopied ? 'Copied! Paste into your SMS app' : 'Copy to Clipboard (for PC)'}
+                  <span>{smsCopied ? '✓ Copied! Paste into WhatsApp or SMS' : 'Copy to Clipboard  (best for PC)'}</span>
                 </button>
 
-                {/* WhatsApp — works on PC (WhatsApp Web) + Mobile */}
+                {/* WhatsApp — PC + Mobile */}
                 <a
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#1ebe5b] transition-all"
                   onClick={() => toast.success('WhatsApp opened!')}
+                  className="flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-bold text-sm bg-[#25D366] text-white hover:bg-[#20bf5a] transition-all active:scale-[.98] shadow-lg shadow-green-200"
                 >
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.890-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.890-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                   </svg>
-                  Send via WhatsApp (PC & Mobile)
+                  Send via WhatsApp &nbsp;<span className="text-white/70 text-[10px] font-semibold">(PC & Mobile)</span>
                 </a>
 
-                {/* Native SMS — best on mobile */}
+                {/* Native SMS — mobile */}
                 <a
                   href={smsUrl}
-                  className="flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-bold text-sm bg-blue-500 text-white hover:bg-blue-600 transition-all"
                   onClick={() => toast.success('SMS app opened!')}
+                  className="flex items-center gap-3 w-full px-5 py-3.5 rounded-2xl font-bold text-sm bg-blue-600 text-white hover:bg-blue-700 transition-all active:scale-[.98] shadow-lg shadow-blue-200"
                 >
-                  <Smartphone size={18} />
-                  Open SMS App (Mobile)
+                  <Smartphone size={18} className="flex-shrink-0" />
+                  Open SMS App &nbsp;<span className="text-white/70 text-[10px] font-semibold">(Mobile only)</span>
                 </a>
               </div>
 
-              <p className="text-[10px] text-slate-400 text-center mt-4 font-medium">
-                💡 On a PC? Use <strong>Copy to Clipboard</strong> then paste in WhatsApp Desktop or your SMS app
+              <p className="text-[10px] text-slate-400 text-center font-medium pt-1">
+                💡 On PC? <strong className="text-slate-600">Copy</strong> then paste in WhatsApp Desktop or any messaging app
               </p>
             </div>
           </div>
+
+          {/* Slide-up keyframe injected inline */}
+          <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity:.6 } to { transform: translateY(0); opacity:1 } }`}</style>
         </div>
       )}
 
@@ -557,19 +586,39 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
                           );
                         })}
 
-                        {/* % column */}
+                        {/* % column — custom downward picker */}
                         <td className="p-1 text-center" onClick={e => e.stopPropagation()}>
                           {isEditing ? (
-                            <select
-                              value={pct ?? ''}
-                              onChange={e => handleFieldChange(la, 'percentage', e.target.value ? Number(e.target.value) : null)}
-                              className="text-[9px] font-bold w-14 bg-white border border-slate-200 rounded px-1 py-0.5 outline-none text-slate-700 text-center"
-                            >
-                              <option value="">—</option>
-                              {Array.from({ length: 100 }, (_, i) => i + 1).map(n => (
-                                <option key={n} value={n}>{n}%</option>
-                              ))}
-                            </select>
+                            <div className="relative" style={{ zIndex: 200 }}>
+                              <button
+                                type="button"
+                                onClick={() => setOpenDropdown(openDropdown === `pct-${la}` ? null : `pct-${la}`)}
+                                className="text-[9px] font-bold w-14 bg-white border border-slate-300 rounded-lg px-1 py-1 text-slate-700 text-center hover:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-300 transition-colors"
+                              >
+                                {pct != null ? `${pct}%` : '—'}
+                              </button>
+                              {openDropdown === `pct-${la}` && (
+                                <div
+                                  className="absolute left-0 top-full mt-1 w-20 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-y-auto"
+                                  style={{ maxHeight: 200, zIndex: 9999 }}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <div
+                                    className="px-2 py-1.5 text-[9px] font-bold text-slate-400 hover:bg-orange-50 hover:text-orange-600 cursor-pointer"
+                                    onClick={() => { handleFieldChange(la, 'percentage', null); setOpenDropdown(null); }}
+                                  >—</div>
+                                  {Array.from({ length: 100 }, (_, k) => k + 1).map(n => (
+                                    <div
+                                      key={n}
+                                      onClick={() => { handleFieldChange(la, 'percentage', n); setOpenDropdown(null); }}
+                                      className={`px-2 py-1.5 text-[9px] font-bold cursor-pointer transition-colors ${
+                                        pct === n ? 'bg-orange-500 text-white' : 'text-slate-700 hover:bg-orange-50 hover:text-orange-600'
+                                      }`}
+                                    >{n}%</div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <span className={`text-[10px] font-black ${pct != null ? 'text-slate-700' : 'text-slate-300'}`}>
                               {pct != null ? `${pct}%` : '—'}
@@ -577,19 +626,39 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
                           )}
                         </td>
 
-                        {/* PNT column */}
+                        {/* PNT column — custom downward picker */}
                         <td className="p-1 text-center" onClick={e => e.stopPropagation()}>
                           {isEditing ? (
-                            <select
-                              value={pnt ?? ''}
-                              onChange={e => handleFieldChange(la, 'pnt', e.target.value ? Number(e.target.value) : null)}
-                              className="text-[9px] font-bold w-12 bg-white border border-slate-200 rounded px-1 py-0.5 outline-none text-slate-700 text-center"
-                            >
-                              <option value="">—</option>
-                              {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
-                                <option key={n} value={n}>{n}</option>
-                              ))}
-                            </select>
+                            <div className="relative" style={{ zIndex: 200 }}>
+                              <button
+                                type="button"
+                                onClick={() => setOpenDropdown(openDropdown === `pnt-${la}` ? null : `pnt-${la}`)}
+                                className="text-[9px] font-bold w-12 bg-white border border-slate-300 rounded-lg px-1 py-1 text-slate-700 text-center hover:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-300 transition-colors"
+                              >
+                                {pnt != null ? pnt : '—'}
+                              </button>
+                              {openDropdown === `pnt-${la}` && (
+                                <div
+                                  className="absolute left-0 top-full mt-1 w-16 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-y-auto"
+                                  style={{ maxHeight: 200, zIndex: 9999 }}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <div
+                                    className="px-2 py-1.5 text-[9px] font-bold text-slate-400 hover:bg-orange-50 hover:text-orange-600 cursor-pointer"
+                                    onClick={() => { handleFieldChange(la, 'pnt', null); setOpenDropdown(null); }}
+                                  >—</div>
+                                  {Array.from({ length: 10 }, (_, k) => k + 1).map(n => (
+                                    <div
+                                      key={n}
+                                      onClick={() => { handleFieldChange(la, 'pnt', n); setOpenDropdown(null); }}
+                                      className={`px-2 py-1.5 text-[9px] font-bold cursor-pointer transition-colors ${
+                                        pnt === n ? 'bg-orange-500 text-white' : 'text-slate-700 hover:bg-orange-50 hover:text-orange-600'
+                                      }`}
+                                    >{n}</div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <span className={`text-[10px] font-black ${pnt != null ? 'text-slate-700' : 'text-slate-300'}`}>
                               {pnt != null ? pnt : '—'}
@@ -704,18 +773,34 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="pt-4 flex justify-between items-end">
-            <div className="text-center space-y-2">
-              <div className="w-32 border-b-2 border-slate-900 mx-auto" />
-              <p className="text-[9px] font-black text-slate-900 tracking-widest">Class Teacher</p>
+          {/* Footer — Signature Section */}
+          <div className="mt-8 pt-6 border-t border-slate-100">
+            <div className="flex justify-between items-end gap-8">
+
+              {/* Class Teacher */}
+              <div className="flex-1 text-center">
+                <div className="h-16 border-b-2 border-slate-800 mx-4 mb-2" />
+                <p className="text-[9px] font-black text-slate-700 tracking-[0.15em] uppercase">Class Teacher</p>
+                <p className="text-[8px] text-slate-400 mt-0.5">Name &amp; Signature</p>
+              </div>
+
+              {/* Date */}
+              <div className="flex-1 text-center">
+                <div className="h-16 border-b-2 border-slate-400 border-dashed mx-4 mb-2" />
+                <p className="text-[9px] font-black text-slate-500 tracking-[0.15em] uppercase">Date</p>
+              </div>
+
+              {/* Headteacher */}
+              <div className="flex-1 text-center">
+                <div className="h-16 border-b-2 border-slate-800 mx-4 mb-2" />
+                <p className="text-[9px] font-black text-slate-700 tracking-[0.15em] uppercase">Headteacher</p>
+                <p className="text-[8px] text-slate-400 mt-0.5">Name &amp; Signature</p>
+              </div>
+
             </div>
-            <div className="text-center opacity-30 pb-2">
-              <p className="text-[8px] font-black tracking-[0.2em] text-slate-400 italic">e-stamp verified · brightsoma</p>
-            </div>
-            <div className="text-center space-y-2">
-              <div className="w-32 border-b-2 border-slate-900 mx-auto" />
-              <p className="text-[9px] font-black text-slate-900 tracking-widest">Headteacher</p>
+            {/* Stamp / watermark */}
+            <div className="text-center mt-6 opacity-25">
+              <p className="text-[8px] font-black tracking-[0.25em] text-slate-400 italic">e-stamp verified · brightsoma</p>
             </div>
           </div>
 
