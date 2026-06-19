@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   UserPlus, ArrowLeft, GraduationCap, Wallet, Home,
   Users, Activity, FileText, Bus, FileEdit, UploadCloud, X, CheckCircle2,
-  UserCheck, Download, Bell, Package, BookOpen, Trash2
+  UserCheck, Download, Bell, Package, BookOpen, Trash2, Sparkles
 } from 'lucide-react';
 import { CBCGrade, BoardingType, StudentStatus } from '../types';
 import { CBC_GRADES } from '../constants';
@@ -15,11 +15,27 @@ import { sendRealSMS } from '../services/smsService';
 
 interface RegisterLearnerProps {
   setActiveTab: (tab: string) => void;
+  studentId?: string | null;
+  isMockAuth?: boolean;
 }
 
-const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
+const toTitleCase = (str: string): string => {
+  if (!str) return '';
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab, studentId, isMockAuth }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(!!studentId);
   // --- PERSISTENCE LOGIC ---
   const [formData, setFormData] = useState<any>(() => {
+    if (studentId) return {}; // Don't use draft when editing
     const saved = localStorage.getItem('learner_registration_draft');
     return saved ? JSON.parse(saved) : {};
   });
@@ -45,6 +61,7 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, File>>({});
   const [autoAdmissionNumber, setAutoAdmissionNumber] = useState(`SCH/${new Date().getFullYear()}/`);
   const [isGeneratingAdmn, setIsGeneratingAdmn] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(!!studentId);
   const [isBoarding, setIsBoarding] = useState(() => formData.boardingType === 'Boarding');
   const [boardingEquipment, setBoardingEquipment] = useState<{id: string, item: string, checked: boolean}[]>([
     { id: '1', item: 'Mattress (3x6)', checked: false },
@@ -66,6 +83,27 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
     { id: '3', item: 'Locker Key', checked: false }
   ]);
   const [newEquipment, setNewEquipment] = useState('');
+  const [siblings, setSiblings] = useState<{name: string, age: string, school: string}[]>(() => {
+    return [{ name: '', age: '', school: '' }];
+  });
+  const [calculatedAge, setCalculatedAge] = useState<string>('');
+  const [selectedReligion, setSelectedReligion] = useState<string>('Christianity');
+
+  useEffect(() => {
+    if (formData.dateOfBirth) {
+      const birthDate = new Date(formData.dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      setCalculatedAge(age >= 0 ? `${age} Years` : '');
+    } else {
+      setCalculatedAge('');
+    }
+  }, [formData.dateOfBirth]);
+
   const [activeTab, setActiveTabLocal] = useState(() => {
     return localStorage.getItem('last_active_tab') || 'dashboard';
   });
@@ -89,6 +127,8 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
   const [dorms, setDorms] = useState<any[]>([]);
   const [selectedDormId, setSelectedDormId] = useState<string>('');
   const [availableStreams, setAvailableStreams] = useState<string[]>([]);
+  const [isManualAdmn, setIsManualAdmn] = useState(false);
+  const [selectedStream, setSelectedStream] = useState('');
 
   React.useEffect(() => {
     const fetchStreams = async () => {
@@ -121,11 +161,20 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
 
   React.useEffect(() => {
     const fetchLatestAdmissionNumber = async () => {
+      if (isManualAdmn) return;
       try {
         const user = auth.currentUser;
-        let schoolId = 'mock-school-id';
-        if (user) {
-          schoolId = user.uid;
+        if (!user) {
+          setAutoAdmissionNumber(`SCH/${new Date().getFullYear()}/001`);
+          setIsGeneratingAdmn(false);
+          return;
+        }
+        let schoolId = user.uid;
+        
+        const staffDocRef = doc(db, 'staff', user.uid);
+        const staffDocSnap = await getDoc(staffDocRef);
+        if (staffDocSnap.exists() && staffDocSnap.data().schoolId) {
+          schoolId = staffDocSnap.data().schoolId;
         }
 
         const currentYear = new Date().getFullYear();
@@ -165,7 +214,87 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
     };
 
     fetchLatestAdmissionNumber();
-  }, []);
+  }, [selectedGrade, selectedStream, isManualAdmn]);
+
+  // Fetch Student Data for Editing
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      if (!studentId) return;
+      try {
+        if (isMockAuth) {
+          const { MOCK_STUDENTS } = await import('../demoData');
+          const mockStudent = MOCK_STUDENTS.find(s => s.id === studentId) as any;
+          if (mockStudent) {
+            setFormData(mockStudent);
+            setSelectedGrade(mockStudent.grade);
+            setIsBoarding(mockStudent.boardingType === 'Boarding');
+            if (mockStudent.boardingDetails) {
+              setSelectedDormId(mockStudent.boardingDetails.dormId);
+              setBoardingEquipment(mockStudent.boardingDetails.equipmentChecklist || []);
+            }
+            if (mockStudent.dayScholarDetails) {
+              setDayScholarChecklist(mockStudent.dayScholarDetails.checklist || []);
+            }
+            setAllocatedItems(mockStudent.allocatedItems || []);
+            setTransportRequired(mockStudent.transport?.required || false);
+            if (mockStudent.transport?.notifications) {
+              setTransportNotifs(mockStudent.transport.notifications);
+            }
+            if (mockStudent.siblings) {
+              setSiblings(mockStudent.siblings);
+            } else {
+              setSiblings([{ name: '', age: '', school: '' }]);
+            }
+            if (mockStudent.faithInfo?.religion) {
+              setSelectedReligion(mockStudent.faithInfo.religion);
+            }
+          }
+          setIsLoadingData(false);
+          return;
+        }
+
+        const studentDoc = await getDoc(doc(db, 'students', studentId));
+        if (studentDoc.exists()) {
+          const data = studentDoc.data();
+          setFormData(data);
+          setSelectedGrade(data.grade);
+          setIsBoarding(data.boardingType === 'Boarding');
+          if (data.boardingDetails) {
+            setSelectedDormId(data.boardingDetails.dormId);
+            setBoardingEquipment(data.boardingDetails.equipmentChecklist || []);
+          }
+          if (data.dayScholarDetails) {
+            setDayScholarChecklist(data.dayScholarDetails.checklist || []);
+          }
+          setAllocatedItems(data.allocatedItems || []);
+          setTransportRequired(data.transport?.required || false);
+          if (data.transport?.notifications) {
+            setTransportNotifs(data.transport.notifications);
+          }
+          if (data.siblings) {
+            setSiblings(data.siblings);
+          } else {
+            setSiblings([{ name: '', age: '', school: '' }]);
+          }
+          if (data.faithInfo?.religion) {
+            setSelectedReligion(data.faithInfo.religion);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching student data:", err);
+        toast.error("Failed to load learner data.");
+        setIsLoadingData(false);
+      }
+    };
+    fetchStudentData();
+  }, [studentId, isMockAuth]);
+
+  // Update loading state when data is loaded
+  useEffect(() => {
+    if (studentId && formData.name) {
+      setIsLoadingData(false);
+    }
+  }, [formData, studentId]);
 
   // Fetch Class Teacher and Grade Teachers
   React.useEffect(() => {
@@ -252,8 +381,8 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
-    const admissionNumber = formData.get('admissionNumber') as string;
-    const name = formData.get('name') as string;
+    const admissionNumber = (formData.get('admissionNumber') as string || '').trim();
+    const name = toTitleCase(formData.get('name') as string);
     const emergencyContact = formData.get('emergencyContact') as string;
     const fatherPhone = formData.get('fatherPhone') as string;
     const motherPhone = formData.get('motherPhone') as string;
@@ -296,9 +425,21 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
     }
 
     setFormErrors({});
+    setIsSubmitting(true);
+    const loadingToast = toast.loading(studentId ? 'Updating record...' : 'Generating enrollment...');
+
+    if (isMockAuth) {
+      toast.success(studentId ? 'Mock: Learner record updated successfully.' : 'Mock: Enrollment Successful.', { id: loadingToast });
+      setIsSubmitting(false);
+      localStorage.removeItem('learner_registration_draft');
+      setActiveTab('students');
+      return;
+    }
 
     const initialAmountPaidStr = formData.get('initialAmountPaid') as string;
     const initialAmountPaid = parseFloat(initialAmountPaidStr) || 0;
+    const totalFeesPaidTillNow = parseFloat(formData.get('totalFeesPaidTillNow') as string) || 0;
+    const startingBalance = parseFloat(formData.get('startingBalance') as string) || 0;
     const paymentMethod = formData.get('paymentMethod') as string || 'Cash';
 
     const studentData = {
@@ -316,7 +457,7 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
       boardingDetails: isBoarding ? {
         dormId: selectedDormId,
         dormName: dorms.find(d => d.id === selectedDormId)?.name || '',
-        matronName: formData.get('matronName') as string,
+        matronName: toTitleCase(formData.get('matronName') as string),
         equipmentChecklist: boardingEquipment
       } : null,
       dayScholarDetails: !isBoarding ? {
@@ -330,15 +471,22 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
       dateOfAdmission: formData.get('dateOfAdmission') as string,
       status: formData.get('status') as StudentStatus,
       parentInfo: {
-        fatherName: formData.get('fatherName') as string,
+        fatherName: toTitleCase(formData.get('fatherName') as string),
         fatherPhone: formData.get('fatherPhone') as string,
         fatherId: formData.get('fatherId') as string,
-        motherName: formData.get('motherName') as string,
+        fatherEmployment: formData.get('fatherEmployment') as string || '',
+        fatherPosition: formData.get('fatherPosition') as string || '',
+        motherName: toTitleCase(formData.get('motherName') as string),
         motherPhone: formData.get('motherPhone') as string,
         motherId: formData.get('motherId') as string,
-        guardianName: formData.get('guardianName') as string,
+        motherEmployment: formData.get('motherEmployment') as string || '',
+        motherPosition: formData.get('motherPosition') as string || '',
+        guardianName: toTitleCase(formData.get('guardianName') as string),
         guardianPhone: formData.get('guardianPhone') as string,
         emergencyContact: emergencyContact,
+        portalEmail: (formData.get('parentPortalEmail') as string)?.trim().toLowerCase() || '',
+        parentOtherEmail: formData.get('parentOtherEmail') as string || '',
+        maritalStatus: formData.get('maritalStatus') as string || 'Married',
       },
       medicalInfo: {
         bloodGroup: formData.get('bloodGroup') as string,
@@ -346,7 +494,29 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
         conditions: formData.get('conditions') as string,
         specialNeeds: formData.get('specialNeeds') as string,
         medication: formData.get('medication') as string,
+        emergencyHospital: formData.get('emergencyHospital') as string || '',
       },
+      addressInfo: {
+        physicalAddress: formData.get('physicalAddress') as string || '',
+        postalAddress: formData.get('postalAddress') as string || '',
+        homeTelephone: formData.get('homeTelephone') as string || '',
+      },
+      siblings: siblings.map(s => ({
+        ...s,
+        name: toTitleCase(s.name)
+      })).filter(s => s.name.trim()),
+      faithInfo: {
+        religion: selectedReligion,
+        religionCustom: formData.get('religionCustom') as string || '',
+        placeOfWorship: formData.get('placeOfWorship') as string || '',
+        religiousLeaderName: toTitleCase(formData.get('religiousLeaderName') as string || ''),
+        religiousLeaderPhone: formData.get('religiousLeaderPhone') as string || '',
+        familyInvolvementDetails: formData.get('familyInvolvementDetails') as string || '',
+        acceptedFaithFather: formData.get('acceptedFaithFather') as string || 'No',
+        acceptedFaithMother: formData.get('acceptedFaithMother') as string || 'No',
+        acceptedFaithStudent: formData.get('acceptedFaithStudent') as string || 'No',
+      },
+      skillsTalents: formData.get('skillsTalents') as string || '',
       transport: transportRequired ? {
         required: true,
         route: formData.get('route') as string,
@@ -356,7 +526,9 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
       } : { required: false },
       adminNotes: formData.get('adminNotes') as string,
       performance: 0,
-      balance: -initialAmountPaid,
+      balance: startingBalance > 0 ? startingBalance : -initialAmountPaid,
+      feePaidOnEnrollment: initialAmountPaid,
+      totalFeesPaidTillNow: totalFeesPaidTillNow,
       createdAt: new Date().toISOString(),
     };
 
@@ -391,84 +563,91 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
         files: fileUrls
       };
 
-      const newStudentRef = await addDoc(collection(db, 'students'), studentDataWithFiles);
+      if (studentId) {
+        await updateDoc(doc(db, 'students', studentId), studentDataWithFiles);
+        toast.success('Learner record updated successfully.', { id: loadingToast });
+      } else {
+        const newStudentRef = await addDoc(collection(db, 'students'), studentDataWithFiles);
 
-      // Update Dormitory Occupancy
-      if (isBoarding && selectedDormId) {
-        try {
-          const dormRef = doc(db, 'dormitories', selectedDormId);
-          const dormSnap = await getDoc(dormRef);
-          if (dormSnap.exists()) {
-            const currentDormData = dormSnap.data();
-            const updatedStudentIds = [...(currentDormData.studentIds || []), newStudentRef.id];
-            await updateDoc(dormRef, {
-              studentIds: updatedStudentIds,
-              currentOccupancy: updatedStudentIds.length
-            });
+        // Update Dormitory Occupancy
+        if (isBoarding && selectedDormId) {
+          try {
+            const dormRef = doc(db, 'dormitories', selectedDormId);
+            const dormSnap = await getDoc(dormRef);
+            if (dormSnap.exists()) {
+              const currentDormData = dormSnap.data();
+              const updatedStudentIds = [...(currentDormData.studentIds || []), newStudentRef.id];
+              await updateDoc(dormRef, {
+                studentIds: updatedStudentIds,
+                currentOccupancy: updatedStudentIds.length
+              });
+            }
+          } catch (dormErr) {
+            console.error("Failed to update dorm occupancy:", dormErr);
           }
-        } catch (dormErr) {
-          console.error("Failed to update dorm occupancy:", dormErr);
         }
-      }
 
-      if (initialAmountPaid > 0) {
-        await addDoc(collection(db, 'payments'), {
-          schoolId,
-          studentId: newStudentRef.id,
-          studentName: name,
-          admissionNumber: admissionNumber,
-          amount: initialAmountPaid,
-          date: new Date().toISOString(),
-          method: paymentMethod,
-          term: 'Term 1 2026',
-          year: new Date().getFullYear(),
-          type: 'Admission Payment',
-          status: 'Completed'
-        });
-      }
-
-      // 🛡️ Generate Parent Access Code for the new learner
-      const parentCode = `PAR-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-      const parentName = studentData.parentInfo.motherName || studentData.parentInfo.fatherName || studentData.parentInfo.guardianName || 'Parent';
-      const parentEmail = (studentData.parentInfo.motherPhone || studentData.parentInfo.fatherPhone || studentData.parentInfo.guardianPhone || admissionNumber) + "@brightsoma.com";
-      
-      const expiresDate = new Date();
-      expiresDate.setFullYear(expiresDate.getFullYear() + 1); // 1 year validity
-
-      await addDoc(collection(db, 'access_codes'), {
-        code: parentCode,
-        role: 'PARENT',
-        staffName: parentName,
-        username: admissionNumber, // Use admission number as username for parents
-        email: parentEmail,
-        schoolId,
-        active: true,
-        createdAt: new Date().toISOString(),
-        expiresAt: expiresDate.toISOString(),
-        learnerId: newStudentRef.id,
-        learnerName: name
-      });
-
-      // Automated Welcome SMS with Credentials
-      if (emergencyContact) {
-        const welcomeMessage = `Welcome to our school! ${name} has been enrolled (Adm: ${admissionNumber}). Login to the Parent Portal with Username: ${admissionNumber} & Access Code: ${parentCode}.`;
-        try {
-          await sendRealSMS(emergencyContact, welcomeMessage);
-          // Log SMS
-          await addDoc(collection(db, 'sms_logs'), {
+        if (initialAmountPaid > 0) {
+          await addDoc(collection(db, 'payments'), {
             schoolId,
-            phone: emergencyContact,
-            message: welcomeMessage,
-            status: 'Success',
-            timestamp: new Date().toISOString(),
-            type: 'EnrollmentWelcome'
+            studentId: newStudentRef.id,
+            studentName: name,
+            admissionNumber: admissionNumber,
+            amount: initialAmountPaid,
+            date: new Date().toISOString(),
+            method: paymentMethod,
+            term: 'Term 1 2026',
+            year: new Date().getFullYear(),
+            type: 'Admission Payment',
+            status: 'Completed'
           });
-        } catch (smsErr) {
-          console.error('Welcome SMS failed:', smsErr);
         }
-      }
 
-      toast.success('Enrollment Successful. Learner profile has been created.');
+        // 🛡️ Generate Parent Access Code for the new learner
+        const parentCode = `PAR-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        const parentName = studentData.parentInfo.motherName || studentData.parentInfo.fatherName || studentData.parentInfo.guardianName || 'Parent';
+        // Use the real portal email if provided, otherwise fall back to phone-based placeholder
+        const parentEmail = studentData.parentInfo.portalEmail || 
+          ((studentData.parentInfo.motherPhone || studentData.parentInfo.fatherPhone || studentData.parentInfo.guardianPhone || admissionNumber) + "@brightsoma.com");
+        
+        const expiresDate = new Date();
+        expiresDate.setFullYear(expiresDate.getFullYear() + 1); // 1 year validity
+
+        await addDoc(collection(db, 'access_codes'), {
+          code: parentCode,
+          role: 'PARENT',
+          staffName: parentName,
+          username: admissionNumber, // Use admission number as username for parents
+          email: parentEmail,
+          schoolId,
+          active: true,
+          createdAt: new Date().toISOString(),
+          expiresAt: expiresDate.toISOString(),
+          learnerId: newStudentRef.id,
+          learnerName: name
+        });
+
+        // Automated Welcome SMS with Credentials
+        if (emergencyContact) {
+          const welcomeMessage = `Welcome to our school! ${name} has been enrolled (Adm: ${admissionNumber}). Login to the Parent Portal with Username: ${admissionNumber} & Access Code: ${parentCode}.`;
+          try {
+            await sendRealSMS(emergencyContact, welcomeMessage);
+            // Log SMS
+            await addDoc(collection(db, 'sms_logs'), {
+              schoolId,
+              phone: emergencyContact,
+              message: welcomeMessage,
+              status: 'Success',
+              timestamp: new Date().toISOString(),
+              type: 'EnrollmentWelcome'
+            });
+          } catch (smsErr) {
+            console.error('Welcome SMS failed:', smsErr);
+          }
+        }
+
+        toast.success('Enrollment Successful. Learner profile has been created.', { id: loadingToast });
+      }
       
       // 🚀 Signal onboarding guide that Step 3 is complete
       localStorage.setItem('onboarding_learner_added', Date.now().toString());
@@ -478,13 +657,15 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
     } catch (error: any) {
       console.error("Error saving document: ", error);
       const errorMessage = error.message || 'Failed to save learner record.';
-      toast.error(errorMessage);
+      toast.error(errorMessage, { id: loadingToast });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const renderFileUpload = (label: string, fieldName: string) => (
     <div className="flex flex-col gap-2">
-      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{label}</label>
+      <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">{label}</label>
       {uploadedFiles[fieldName] ? (
         <div className="flex items-center justify-between p-3 bg-orange-50/50 border border-orange-100 rounded-xl">
           <div className="flex items-center gap-3 overflow-hidden">
@@ -492,14 +673,14 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
               <FileText size={16} className="text-orange-600" />
             </div>
             <div className="truncate">
-              <p className="text-xs font-bold text-slate-700 truncate">{uploadedFiles[fieldName].name}</p>
-              <p className="text-[10px] text-slate-500">{(uploadedFiles[fieldName].size / 1024).toFixed(1)} KB</p>
+              <p className="text-xs font-medium text-black dark:text-white truncate">{uploadedFiles[fieldName].name}</p>
+              <p className="text-[10px] text-black dark:text-white">{(uploadedFiles[fieldName].size / 1024).toFixed(1)} KB</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => removeFile(fieldName)}
-            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+            className="p-1.5 text-black dark:text-white hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
           >
             <X size={16} />
           </button>
@@ -507,8 +688,8 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
       ) : (
         <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-200 hover:border-orange-400 hover:bg-orange-50/30 rounded-xl cursor-pointer transition-all group">
           <div className="flex flex-col items-center justify-center pt-5 pb-6">
-            <UploadCloud size={20} className="text-slate-400 group-hover:text-orange-500 mb-2 transition-colors" />
-            <p className="text-[11px] text-slate-500 group-hover:text-orange-600 font-medium">Click to upload</p>
+            <UploadCloud size={20} className="text-black dark:text-white group-hover:text-orange-500 mb-2 transition-colors" />
+            <p className="text-[11px] text-black dark:text-white group-hover:text-orange-600 font-medium">Click to upload</p>
           </div>
           <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, fieldName)} accept=".pdf,.jpg,.jpeg,.png" />
         </label>
@@ -517,7 +698,7 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
   );
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-8 bg-slate-50/50 min-h-screen">
+    <div className="max-w-5xl mx-auto p-4 md:p-8 bg-white min-h-screen">
       {/* Floating Header - No Card */}
       <div className="relative py-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-5">
@@ -525,9 +706,9 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
             <GraduationCap size={28} strokeWidth={1.5} />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight leading-tight mb-1">Learner Registration</h2>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-              Onboard new learners and capture all required demographic data.
+            <h2 className="text-xl font-semibold text-black dark:text-white tracking-tight leading-tight mb-1">{studentId ? 'Edit Learner Profile' : 'Learner Registration'}</h2>
+            <p className="text-sm font-medium text-black dark:text-slate-400 leading-relaxed">
+              {studentId ? 'Update learner details and demographics.' : 'Onboard new learners and capture all required demographic data.'}
             </p>
           </div>
         </div>
@@ -547,13 +728,13 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
               window.URL.revokeObjectURL(url);
               toast.success("Learner template downloaded!");
             }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-black dark:text-slate-400 rounded-xl font-medium text-sm hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
             title="Download CSV Template"
           >
             <Download size={16} />
             <span className="hidden sm:inline">Template</span>
           </button>
-          <label className="flex items-center gap-2 px-5 py-2.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 rounded-xl font-bold text-sm hover:bg-orange-100 transition-all cursor-pointer active:scale-95">
+          <label className="flex items-center gap-2 px-5 py-2.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 rounded-xl font-medium text-sm hover:bg-orange-100 transition-all cursor-pointer active:scale-95">
             <UploadCloud size={16} />
             Bulk Import CSV
             <input 
@@ -702,95 +883,138 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
           <button
             type="button"
             onClick={() => setActiveTab('students')}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all active:scale-95 shrink-0"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-black dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all active:scale-95 shrink-0"
           >
             <ArrowLeft size={16} /> Back to Learners
           </button>
         </div>
       </div>
 
+      {isLoadingData ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+           <div className="w-12 h-12 border-4 border-orange-600/20 border-t-orange-600 rounded-full animate-spin mb-4"></div>
+           <p className="text-sm font-bold text-slate-500">Retrieving learner profile...</p>
+        </div>
+      ) : (
       <form onSubmit={handleFormSubmit} className="space-y-6">
 
         {/* SECTION 1: Core Identification */}
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
             <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl border border-orange-100/50">
-              <UserCheck size={20} strokeWidth={2} className="text-slate-800" />
+              <UserCheck size={20} strokeWidth={2} className="text-black dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Core Identification</h3>
+            <h3 className="text-lg font-bold text-black dark:text-white">Core Identification</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Full Names <span className="text-rose-500">*</span></label>
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Full Names <span className="text-rose-500">*</span></label>
               <input 
                 name="name" 
                 type="text" 
                 defaultValue={formData.name || ''}
                 onChange={(e) => updateDraft('name', e.target.value)}
-                className={`w-full px-4 py-3 bg-slate-50 border ${formErrors.name ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} placeholder="Enter Full Name" required />
+                onBlur={(e) => {
+                  const formatted = toTitleCase(e.target.value);
+                  e.target.value = formatted;
+                  updateDraft('name', formatted);
+                }}
+                className={`w-full px-4 py-3 bg-slate-50 border ${formErrors.name ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-50/20 focus:border-orange-500 outline-none transition-all`} placeholder="Enter Full Name" required />
               {formErrors.name && <p className="text-xs text-rose-500 mt-1">{formErrors.name}</p>}
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Admission Number <span className="text-rose-500">*</span></label>
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Admission Number <span className="text-rose-500">*</span></label>
               <input
                 name="admissionNumber"
                 type="text"
                 defaultValue={formData.admissionNumber || autoAdmissionNumber}
                 key={autoAdmissionNumber}
-                onChange={(e) => updateDraft('admissionNumber', e.target.value)}
-                className={`w-full px-4 py-3 bg-slate-50 border ${formErrors.admissionNumber ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`}
+                onChange={(e) => {
+                  setIsManualAdmn(true);
+                  updateDraft('admissionNumber', e.target.value);
+                }}
+                className={`w-full px-4 py-3 bg-slate-50 border ${formErrors.admissionNumber ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`}
                 required
                 disabled={isGeneratingAdmn}
               />
               {formErrors.admissionNumber && <p className="text-xs text-rose-500 mt-1">{formErrors.admissionNumber}</p>}
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">NEMIS Number</label>
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">NEMIS Number</label>
               <input 
                 name="nemisNumber" 
                 type="text" 
                 defaultValue={formData.nemisNumber || ''}
                 onChange={(e) => updateDraft('nemisNumber', e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="Optional" />
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="Optional" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Birth Certificate Number</label>
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Birth Certificate / Passport Number</label>
               <input 
                 name="birthCertificateNumber" 
                 type="text" 
                 defaultValue={formData.birthCertificateNumber || ''}
                 onChange={(e) => updateDraft('birthCertificateNumber', e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date of Birth</label>
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Date of Birth</label>
               <input 
                 name="dateOfBirth" 
                 type="date" 
                 defaultValue={formData.dateOfBirth || ''}
-                onChange={(e) => updateDraft('dateOfBirth', e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                onChange={(e) => {
+                  updateDraft('dateOfBirth', e.target.value);
+                  const birthDate = new Date(e.target.value);
+                  const today = new Date();
+                  let age = today.getFullYear() - birthDate.getFullYear();
+                  const m = today.getMonth() - birthDate.getMonth();
+                  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                  }
+                  setCalculatedAge(age >= 0 ? `${age} Years` : '');
+                }}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Gender</label>
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Age</label>
+              <input 
+                type="text" 
+                value={calculatedAge} 
+                readOnly 
+                className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold text-slate-500 outline-none cursor-not-allowed" 
+                placeholder="Calculated automatically" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Gender</label>
               <select 
                 name="gender" 
                 defaultValue={formData.gender || 'Male'}
                 onChange={(e) => updateDraft('gender', e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nationality</label>
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Nationality</label>
               <input 
                 name="nationality" 
                 type="text" 
                 defaultValue={formData.nationality || "Kenyan"} 
                 onChange={(e) => updateDraft('nationality', e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Skills / Talents</label>
+              <input 
+                name="skillsTalents" 
+                type="text" 
+                defaultValue={formData.skillsTalents || ''}
+                onChange={(e) => updateDraft('skillsTalents', e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" 
+                placeholder="e.g. Soccer, Painting, Music" />
             </div>
           </div>
         </div>
@@ -799,35 +1023,53 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
             <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl border border-orange-100/50">
-              <GraduationCap size={20} strokeWidth={2} className="text-slate-800" />
+              <GraduationCap size={20} strokeWidth={2} className="text-black dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Academic Placement</h3>
+            <h3 className="text-lg font-bold text-black dark:text-white">Academic Placement</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">CBC Grade</label>
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">CBC Grade</label>
               <select 
                 name="grade" 
                 value={selectedGrade}
                 onChange={(e) => setSelectedGrade(e.target.value as CBCGrade)}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer"
               >
                 {CBC_GRADES.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Stream</label>
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Stream</label>
               {availableStreams.length > 0 ? (
-                <select name="stream" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
+                <select 
+                  name="stream" 
+                  value={selectedStream || formData.stream || (availableStreams[0] || '')}
+                  onChange={(e) => {
+                    setSelectedStream(e.target.value);
+                    updateDraft('stream', e.target.value);
+                  }}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer"
+                >
                   {availableStreams.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               ) : (
-                <input name="stream" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. North" />
+                <input 
+                  name="stream" 
+                  type="text" 
+                  value={selectedStream || formData.stream || ''}
+                  onChange={(e) => {
+                    setSelectedStream(e.target.value);
+                    updateDraft('stream', e.target.value);
+                  }}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" 
+                  placeholder="e.g. North" 
+                />
               )}
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Boarding Model</label>
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Boarding Model</label>
               <select 
                 name="boardingType" 
                 defaultValue={formData.boardingType || 'Day Scholar'}
@@ -836,19 +1078,19 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
                   setIsBoarding(val === 'Boarding');
                   updateDraft('boardingType', val);
                 }} 
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer"
               >
                 <option value="Day Scholar">Day Scholar</option>
                 <option value="Boarding">Boarding</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date of Admission</label>
-              <input name="dateOfAdmission" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Date of Admission</label>
+              <input name="dateOfAdmission" type="date" defaultValue={new Date().toISOString().split('T')[0]} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</label>
-              <select name="status" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Status</label>
+              <select name="status" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
                 <option value="Active">Active</option>
                 <option value="Pending">Pending</option>
                 <option value="Inactive">Inactive</option>
@@ -861,7 +1103,7 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
             <div className="mt-8 p-6 bg-slate-50/80 rounded-2xl border border-slate-100 flex flex-col gap-5 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="flex items-center gap-2">
                 <BookOpen size={16} className="text-orange-600" />
-                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Teacher Assignments for {selectedGrade}</h4>
+                <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-wider">Teacher Assignments for {selectedGrade}</h4>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -872,8 +1114,8 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
                     </div>
                     <div>
                       <span className="text-[10px] font-bold text-orange-600 uppercase tracking-tight">Class Teacher</span>
-                      <p className="text-sm font-bold text-slate-800">{classTeacher.name}</p>
-                      <p className="text-[11px] text-slate-500 italic">
+                      <p className="text-sm font-bold text-black dark:text-white">{classTeacher.name}</p>
+                      <p className="text-[11px] text-black dark:text-white italic">
                         Teaching: {classTeacher.teachingSubjects?.[selectedGrade]?.join(', ') || 'General Subjects'}
                       </p>
                     </div>
@@ -882,13 +1124,13 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
                 
                 {otherTeachers.map(teacher => (
                   <div key={teacher.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-black dark:text-white shrink-0">
                       <GraduationCap size={20} />
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">Subject Teacher</span>
-                      <p className="text-sm font-bold text-slate-800">{teacher.name}</p>
-                      <p className="text-[11px] text-slate-500 italic">
+                      <span className="text-[10px] font-bold text-black dark:text-white uppercase tracking-tight">Subject Teacher</span>
+                      <p className="text-sm font-bold text-black dark:text-white">{teacher.name}</p>
+                      <p className="text-[11px] text-black dark:text-white italic">
                         Teaching: {teacher.teachingSubjects?.[selectedGrade]?.join(', ') || 'Assigned Subjects'}
                       </p>
                     </div>
@@ -898,7 +1140,7 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
             </div>
           )}
           {isLoadingTeachers && (
-            <div className="mt-8 flex items-center gap-2 justify-center text-slate-400 py-4">
+            <div className="mt-8 flex items-center gap-2 justify-center text-black dark:text-white py-4">
               <Activity size={16} className="animate-spin" />
               <span className="text-xs font-medium italic">Discovering teachers for {selectedGrade}...</span>
             </div>
@@ -910,19 +1152,19 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
           <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
               <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100/50">
-                <Home size={20} strokeWidth={2} className="text-slate-800" />
+                <Home size={20} strokeWidth={2} className="text-black dark:text-white" />
               </div>
-              <h3 className="text-lg font-bold text-slate-800">Boarding Allocation & Checklist</h3>
+              <h3 className="text-lg font-bold text-black dark:text-white">Boarding Allocation & Checklist</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6 pb-6 border-b border-slate-100">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Dormitory Allocated</label>
+                <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Dormitory Allocated</label>
                 <select 
                   name="dormId" 
                   value={selectedDormId}
                   onChange={(e) => setSelectedDormId(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer"
                   required={isBoarding}
                 >
                   <option value="">Select House/Dorm</option>
@@ -934,16 +1176,16 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Matron / Patron Name</label>
-                <input name="matronName" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Mrs. Jane" />
+                <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Matron / Patron Name</label>
+                <input name="matronName" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Mrs. Jane" />
               </div>
             </div>
 
             <div>
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">Boarding Equipment Received</h4>
+              <h4 className="text-xs font-medium text-black dark:text-white uppercase tracking-wider mb-4">Boarding Equipment Received</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                 {boardingEquipment.map(eq => (
-                  <label key={eq.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${eq.checked ? 'bg-orange-50 border-orange-200 text-orange-800 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-orange-300'}`}>
+                  <label key={eq.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${eq.checked ? 'bg-orange-50 border-orange-200 text-orange-800 shadow-sm' : 'bg-slate-50 border-slate-200 text-black dark:text-white hover:border-orange-300'}`}>
                     <input 
                       type="checkbox" 
                       className="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500"
@@ -994,16 +1236,16 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
            <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
               <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl border border-blue-100/50">
-                <BookOpen size={20} strokeWidth={2} className="text-slate-800" />
+                <BookOpen size={20} strokeWidth={2} className="text-black dark:text-white" />
               </div>
-              <h3 className="text-lg font-bold text-slate-800">Day Scholar Checklist</h3>
+              <h3 className="text-lg font-bold text-black dark:text-white">Day Scholar Checklist</h3>
             </div>
             
             <div>
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">Items Brought by Student</h4>
+              <h4 className="text-xs font-medium text-black dark:text-white uppercase tracking-wider mb-4">Items Brought by Student</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                 {dayScholarChecklist.map(eq => (
-                  <label key={eq.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${eq.checked ? 'bg-blue-50 border-blue-200 text-blue-800 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-300'}`}>
+                  <label key={eq.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${eq.checked ? 'bg-blue-50 border-blue-200 text-blue-800 shadow-sm' : 'bg-slate-50 border-slate-200 text-black dark:text-white hover:border-blue-300'}`}>
                     <input 
                       type="checkbox" 
                       className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
@@ -1053,16 +1295,16 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
             <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100/50">
-              <Package size={20} strokeWidth={2} className="text-slate-800" />
+              <Package size={20} strokeWidth={2} className="text-black dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">School Allocated Items</h3>
+            <h3 className="text-lg font-bold text-black dark:text-white">School Allocated Items</h3>
           </div>
           
           <div>
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">Items Provided by School</h4>
+            <h4 className="text-xs font-medium text-black dark:text-white uppercase tracking-wider mb-4">Items Provided by School</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
               {allocatedItems.map(eq => (
-                <label key={eq.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${eq.checked ? 'bg-indigo-50 border-indigo-200 text-indigo-800 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-indigo-300'}`}>
+                <label key={eq.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${eq.checked ? 'bg-indigo-50 border-indigo-200 text-indigo-800 shadow-sm' : 'bg-slate-50 border-slate-200 text-black dark:text-white hover:border-indigo-300'}`}>
                   <input 
                     type="checkbox" 
                     className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
@@ -1111,50 +1353,188 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
             <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl border border-orange-100/50">
-              <Users size={20} strokeWidth={2} className="text-slate-800" />
+              <Users size={20} strokeWidth={2} className="text-black dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Parent / Guardian Information</h3>
+            <h3 className="text-lg font-bold text-black dark:text-white">Parent / Guardian Information</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-6">
             <div className="space-y-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Father's Details</h4>
+              <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-wider">Father's Details</h4>
               <div className="space-y-3">
-                <input name="fatherName" type="text" placeholder="Full Name" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                <input name="fatherName" type="text" defaultValue={formData.parentInfo?.fatherName || ''} placeholder="Full Name" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
                 <div>
-                  <input name="fatherPhone" type="tel" placeholder="Phone Number" className={`w-full px-4 py-2.5 bg-white border ${formErrors.fatherPhone ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm font-medium text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} />
+                  <input name="fatherPhone" type="tel" defaultValue={formData.parentInfo?.fatherPhone || ''} placeholder="Phone Number" className={`w-full px-4 py-2.5 bg-white border ${formErrors.fatherPhone ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} />
                   {formErrors.fatherPhone && <p className="text-xs text-rose-500 mt-1">{formErrors.fatherPhone}</p>}
                 </div>
-                <input name="fatherId" type="text" placeholder="ID Number" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                <input name="fatherId" type="text" defaultValue={formData.parentInfo?.fatherId || ''} placeholder="ID Number" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                <input name="fatherEmployment" type="text" defaultValue={formData.parentInfo?.fatherEmployment || ''} placeholder="Place of Employment" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                <input name="fatherPosition" type="text" defaultValue={formData.parentInfo?.fatherPosition || ''} placeholder="Position Held" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
               </div>
             </div>
 
             <div className="space-y-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Mother's Details</h4>
+              <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-wider">Mother's Details</h4>
               <div className="space-y-3">
-                <input name="motherName" type="text" placeholder="Full Name" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                <input name="motherName" type="text" defaultValue={formData.parentInfo?.motherName || ''} placeholder="Full Name" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
                 <div>
-                  <input name="motherPhone" type="tel" placeholder="Phone Number" className={`w-full px-4 py-2.5 bg-white border ${formErrors.motherPhone ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm font-medium text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} />
+                  <input name="motherPhone" type="tel" defaultValue={formData.parentInfo?.motherPhone || ''} placeholder="Phone Number" className={`w-full px-4 py-2.5 bg-white border ${formErrors.motherPhone ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} />
                   {formErrors.motherPhone && <p className="text-xs text-rose-500 mt-1">{formErrors.motherPhone}</p>}
                 </div>
-                <input name="motherId" type="text" placeholder="ID Number" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                <input name="motherId" type="text" defaultValue={formData.parentInfo?.motherId || ''} placeholder="ID Number" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                <input name="motherEmployment" type="text" defaultValue={formData.parentInfo?.motherEmployment || ''} placeholder="Place of Employment" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                <input name="motherPosition" type="text" defaultValue={formData.parentInfo?.motherPosition || ''} placeholder="Position Held" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
               </div>
             </div>
 
             <div className="space-y-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Guardian Details</h4>
+              <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-wider">Guardian Details</h4>
               <div className="space-y-3">
-                <input name="guardianName" type="text" placeholder="Full Name (Optional)" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
+                <input name="guardianName" type="text" defaultValue={formData.parentInfo?.guardianName || ''} placeholder="Full Name (Optional)" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" />
                 <div>
-                  <input name="guardianPhone" type="tel" placeholder="Phone Number" className={`w-full px-4 py-2.5 bg-white border ${formErrors.guardianPhone ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm font-medium text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} />
+                  <input name="guardianPhone" type="tel" defaultValue={formData.parentInfo?.guardianPhone || ''} placeholder="Phone Number" className={`w-full px-4 py-2.5 bg-white border ${formErrors.guardianPhone ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} />
                   {formErrors.guardianPhone && <p className="text-xs text-rose-500 mt-1">{formErrors.guardianPhone}</p>}
                 </div>
                 <div className="pt-2">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-1">Emergency Contact <span className="text-rose-500">*</span></label>
-                  <input name="emergencyContact" type="tel" placeholder="Required" className={`w-full px-4 py-2.5 bg-white border ${formErrors.emergencyContact ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm font-medium text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} required />
+                  <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider flex items-center gap-1 mb-1">Emergency Contact <span className="text-rose-500">*</span></label>
+                  <input name="emergencyContact" type="tel" defaultValue={formData.parentInfo?.emergencyContact || ''} placeholder="Required" className={`w-full px-4 py-2.5 bg-white border ${formErrors.emergencyContact ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm font-medium text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all`} required />
                   {formErrors.emergencyContact && <p className="text-xs text-rose-500 mt-1">{formErrors.emergencyContact}</p>}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Marital Status & Other Email */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-5 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Marital Status</label>
+              <select name="maritalStatus" defaultValue={formData.parentInfo?.maritalStatus || 'Married'} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
+                <option value="Married">Married</option>
+                <option value="Single">Single</option>
+                <option value="Widowed">Widowed</option>
+                <option value="Divorced">Divorced</option>
+                <option value="Separated">Separated</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Secondary / Other Email</label>
+              <input name="parentOtherEmail" type="email" defaultValue={formData.parentInfo?.parentOtherEmail || ''} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="Optional" />
+            </div>
+          </div>
+
+          {/* Parent Portal Email — used as login for Parent Portal */}
+          <div className="mt-6 p-5 bg-blue-50 border border-blue-200 rounded-2xl">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-blue-100 rounded-xl">
+                <Bell size={18} className="text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-blue-800 mb-0.5">Parent Portal Login Email</p>
+                <p className="text-xs text-blue-600 mb-3">This is the email the parent will use to log into the Parent Portal and view their child's information. It links their account to this learner.</p>
+                <input
+                  name="parentPortalEmail"
+                  type="email"
+                  placeholder="e.g. parent@gmail.com"
+                  defaultValue={formData.parentPortalEmail || formData.parentInfo?.portalEmail || ''}
+                  onChange={(e) => updateDraft('parentPortalEmail', e.target.value)}
+                  className="w-full max-w-md px-4 py-3 bg-white border border-blue-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                />
+                <p className="text-[10px] text-blue-500 mt-2 font-medium">⚠ The parent must use this exact email when logging in via the Parent Portal.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3B: Address & Siblings Details */}
+        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+            <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl border border-orange-100/50">
+              <Home size={20} strokeWidth={2} className="text-black dark:text-white" />
+            </div>
+            <h3 className="text-lg font-bold text-black dark:text-white">Address & Sibling Details</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Physical Address / Residence</label>
+              <input name="physicalAddress" type="text" defaultValue={formData.addressInfo?.physicalAddress || formData.physicalAddress || ''} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Nyali, Mombasa" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Postal Address</label>
+              <input name="postalAddress" type="text" defaultValue={formData.addressInfo?.postalAddress || formData.postalAddress || ''} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. P.O. Box 100-80100" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Telephone (Home)</label>
+              <input name="homeTelephone" type="tel" defaultValue={formData.addressInfo?.homeTelephone || formData.homeTelephone || ''} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. 020XXXXXXX" />
+            </div>
+          </div>
+
+          {/* Siblings */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-wider">Siblings Details</h4>
+              <button 
+                type="button" 
+                onClick={() => setSiblings(prev => [...prev, { name: '', age: '', school: '' }])}
+                className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-lg text-xs font-bold transition-all animate-in fade-in active:scale-95"
+              >
+                + Add Sibling
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {siblings.map((sib, index) => (
+                <div key={index} className="flex flex-col sm:flex-row items-center gap-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 animate-in slide-in-from-top-2 duration-300">
+                  <div className="flex-1 w-full space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sibling Name</label>
+                    <input 
+                      type="text" 
+                      value={sib.name}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSiblings(prev => prev.map((s, idx) => idx === index ? { ...s, name: val } : s));
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-black" 
+                      placeholder="Enter sibling's name" 
+                    />
+                  </div>
+                  <div className="w-full sm:w-24 space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Age</label>
+                    <input 
+                      type="number" 
+                      value={sib.age}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSiblings(prev => prev.map((s, idx) => idx === index ? { ...s, age: val } : s));
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-black" 
+                      placeholder="Age" 
+                    />
+                  </div>
+                  <div className="flex-1 w-full space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">School Attended</label>
+                    <input 
+                      type="text" 
+                      value={sib.school}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSiblings(prev => prev.map((s, idx) => idx === index ? { ...s, school: val } : s));
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-black" 
+                      placeholder="School name" 
+                    />
+                  </div>
+                  {siblings.length > 1 && (
+                    <button 
+                      type="button" 
+                      onClick={() => setSiblings(prev => prev.filter((_, idx) => idx !== index))}
+                      className="mt-5 p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors active:scale-95"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -1163,33 +1543,130 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
             <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl border border-rose-100/50">
-              <Activity size={20} strokeWidth={2} className="text-slate-800" />
+              <Activity size={20} strokeWidth={2} className="text-black dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Medical Information</h3>
+            <h3 className="text-lg font-bold text-black dark:text-white">Medical Information</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-1.5 md:col-span-2 lg:col-span-1">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Blood Group</label>
-              <select name="bloodGroup" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Blood Group</label>
+              <select name="bloodGroup" defaultValue={formData.medicalInfo?.bloodGroup || 'Unknown'} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
                 {['Unknown', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Allergies</label>
-              <textarea name="allergies" rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="List any allergies..." />
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Allergies</label>
+              <textarea name="allergies" defaultValue={formData.medicalInfo?.allergies || ''} rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="List any allergies..." />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Medical Conditions</label>
-              <textarea name="conditions" rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="Any chronic conditions..." />
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Other Medical Conditions Affecting Learning</label>
+              <textarea name="conditions" defaultValue={formData.medicalInfo?.conditions || ''} rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="Any chronic conditions..." />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Special Needs / Disability</label>
-              <textarea name="specialNeeds" rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="Any special requirements..." />
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Special Needs / Disability</label>
+              <textarea name="specialNeeds" defaultValue={formData.medicalInfo?.specialNeeds || ''} rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="Any special requirements..." />
             </div>
             <div className="space-y-1.5 md:col-span-2">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Medication Required</label>
-              <textarea name="medication" rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="Current medications..." />
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Medication Required</label>
+              <textarea name="medication" defaultValue={formData.medicalInfo?.medication || ''} rows={2} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="Current medications..." />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Hospital of Choice in Case of Emergency</label>
+              <input name="emergencyHospital" type="text" defaultValue={formData.medicalInfo?.emergencyHospital || ''} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Nairobi Hospital, Aga Khan" />
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 4B: Religion & Faith Details */}
+        <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+            <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl border border-orange-100/50">
+              <Sparkles size={20} strokeWidth={2} className="text-black dark:text-white" />
+            </div>
+            <h3 className="text-lg font-bold text-black dark:text-white">Religion & Faith Details</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Religion</label>
+              <select 
+                name="religion" 
+                value={selectedReligion} 
+                onChange={(e) => {
+                  setSelectedReligion(e.target.value);
+                  updateDraft('religion', e.target.value);
+                }} 
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer"
+              >
+                <option value="Christianity">Christianity</option>
+                <option value="Islam">Islam</option>
+                <option value="Hinduism">Hinduism</option>
+                <option value="Other">Other / Custom</option>
+              </select>
+            </div>
+
+            {selectedReligion === 'Other' && (
+              <div className="space-y-1.5 animate-in fade-in duration-300">
+                <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Specify Religion</label>
+                <input name="religionCustom" type="text" defaultValue={formData.faithInfo?.religionCustom || ''} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="Enter religion" />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">
+                {selectedReligion === 'Islam' ? 'Mosque Attending' : selectedReligion === 'Hinduism' ? 'Temple Attending' : 'Church Attending'}
+              </label>
+              <input name="placeOfWorship" type="text" defaultValue={formData.faithInfo?.placeOfWorship || formData.placeOfWorship || ''} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="Name of worship place" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">
+                {selectedReligion === 'Islam' ? 'Name of Imam' : selectedReligion === 'Hinduism' ? 'Name of Priest' : 'Name of Pastor'}
+              </label>
+              <input name="religiousLeaderName" type="text" defaultValue={formData.faithInfo?.religiousLeaderName || ''} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="Spiritual Leader's Name" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Leader Phone Number</label>
+              <input name="religiousLeaderPhone" type="tel" defaultValue={formData.faithInfo?.religiousLeaderPhone || ''} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. 07XXXXXXXX" />
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Active involvement in community/place of worship?</label>
+              <textarea name="familyInvolvementDetails" rows={2} defaultValue={formData.faithInfo?.familyInvolvementDetails || ''} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="Provide brief details about dynamic family involvement..." />
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-wider mb-4">Personal Faith Commitment & Saved Declaration</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { id: 'acceptedFaithFather', label: "Father has accepted faith / saved?" },
+                  { id: 'acceptedFaithMother', label: "Mother has accepted faith / saved?" },
+                  { id: 'acceptedFaithStudent', label: "Learner has accepted faith / saved?" }
+                ].map(item => (
+                  <div key={item.id} className="flex flex-col gap-2">
+                    <span className="text-xs font-semibold text-slate-600">{item.label}</span>
+                    <div className="flex gap-4">
+                      {['Yes', 'No'].map(val => (
+                        <label key={val} className="flex items-center gap-2 cursor-pointer">
+                          <input 
+                            type="radio" 
+                            name={item.id} 
+                            value={val}
+                            defaultChecked={formData.faithInfo?.[item.id] === val || (val === 'No' && !formData.faithInfo?.[item.id])}
+                            className="w-4 h-4 text-orange-600 border-slate-300 focus:ring-orange-500" 
+                          />
+                          <span className="text-xs font-bold text-black dark:text-white">{val}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -1198,9 +1675,9 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
             <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100/50">
-              <FileText size={20} strokeWidth={2} className="text-slate-800" />
+              <FileText size={20} strokeWidth={2} className="text-black dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Document Uploads</h3>
+            <h3 className="text-lg font-bold text-black dark:text-white">Document Uploads</h3>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -1218,12 +1695,12 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-100/50">
-                  <Bus size={20} strokeWidth={2} className="text-slate-800" />
+                  <Bus size={20} strokeWidth={2} className="text-black dark:text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-800">Transport Enrollment</h3>
+                <h3 className="text-lg font-bold text-black dark:text-white">Transport Enrollment</h3>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm font-bold text-slate-600">Transport Required?</span>
+                <span className="text-sm font-bold text-black dark:text-white">Transport Required?</span>
                 <button
                   type="button"
                   onClick={() => setTransportRequired(!transportRequired)}
@@ -1237,22 +1714,22 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
             {transportRequired && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-top-2 duration-300">
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Route</label>
-                  <input name="route" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Route A" />
+                  <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Route</label>
+                  <input name="route" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Route A" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pickup Point</label>
-                  <input name="pickupPoint" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Main Gate" />
+                  <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Pickup Point</label>
+                  <input name="pickupPoint" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. Main Gate" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Bus Number</label>
-                  <input name="busNumber" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. KCA 123A" />
+                  <label className="text-[11px] font-bold text-black dark:text-white uppercase tracking-wider">Bus Number</label>
+                  <input name="busNumber" type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="e.g. KCA 123A" />
                 </div>
 
                 <div className="md:col-span-3 pt-4 border-t border-slate-100">
                   <div className="flex items-center gap-2 mb-4">
                     <Bell size={16} className="text-orange-600" />
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">SMS Enrollment Notifications</h4>
+                    <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-wider">SMS Enrollment Notifications</h4>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
@@ -1268,11 +1745,11 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
                           onChange={(e) => setTransportNotifs(p => ({ ...p, [notif.id]: e.target.checked }))}
                           className="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500"
                         />
-                        <span className="text-xs font-bold text-slate-600">{notif.label}</span>
+                        <span className="text-xs font-bold text-black dark:text-white">{notif.label}</span>
                       </label>
                     ))}
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-3 font-medium flex items-center gap-1.5">
+                  <p className="text-[10px] text-black dark:text-white mt-3 font-medium flex items-center gap-1.5">
                     <Bell size={10} />
                     Parent will receive real-time SMS alerts for the selected events.
                   </p>
@@ -1282,46 +1759,54 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
           </div>
         )}
 
-        {/* SECTION 7: Fee Invoice / Initial Payment */}
+        {/* SECTION 7: Financial Tracking & Initial Payment */}
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
             <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100/50">
-              <Wallet size={20} strokeWidth={2} className="text-slate-800" />
+              <Wallet size={20} strokeWidth={2} className="text-black dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Fee Invoice & Initial Payment</h3>
+            <h3 className="text-lg font-bold text-black dark:text-white">Financial Tracking & Initial Payment</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Initial Amount Paid (KES)</label>
-              <input name="initialAmountPaid" type="number" min="0" step="any" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="0.00" />
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Fee Paid on Enrollment</label>
+              <input name="initialAmountPaid" type="number" min="0" step="any" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="0.00" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Payment Method</label>
-              <select name="paymentMethod" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Total Fees Paid Till Now</label>
+              <input name="totalFeesPaidTillNow" type="number" min="0" step="any" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="0.00" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Account Balance</label>
+              <input name="startingBalance" type="number" step="any" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all" placeholder="0.00" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Payment Method</label>
+              <select name="paymentMethod" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all cursor-pointer">
                 <option value="M-Pesa">M-Pesa (Paybill / Till)</option>
                 <option value="Bank">Bank Deposit</option>
                 <option value="Cash">Cash</option>
               </select>
             </div>
           </div>
-          <p className="text-xs text-slate-500 mt-4 leading-relaxed">
-            * Entering an amount here will automatically generate an initial payment receipt and credit the learner's fee balance.
+          <p className="text-xs text-black dark:text-white mt-4 leading-relaxed">
+            * These fields are essential for schools using the app for the first time to migrate existing financial records.
           </p>
         </div>
 
         {/* SECTION 8: Additional Notes */}
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-            <div className="p-2.5 bg-slate-100 text-slate-600 rounded-xl border border-slate-200/50">
-              <FileEdit size={20} strokeWidth={2} className="text-slate-800" />
+            <div className="p-2.5 bg-slate-100 text-black dark:text-white rounded-xl border border-slate-200/50">
+              <FileEdit size={20} strokeWidth={2} className="text-black dark:text-white" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">Additional Notes</h3>
+            <h3 className="text-lg font-bold text-black dark:text-white">Additional Notes</h3>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Administrative Notes</label>
-            <textarea name="adminNotes" rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="Any other relevant information..." />
+            <label className="text-[11px] font-medium text-black dark:text-white uppercase tracking-wider">Administrative Notes</label>
+            <textarea name="adminNotes" rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-black dark:text-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all resize-none" placeholder="Any other relevant information..." />
           </div>
         </div>
 
@@ -1330,22 +1815,25 @@ const RegisterLearner: React.FC<RegisterLearnerProps> = ({ setActiveTab }) => {
           <button
             type="button"
             onClick={() => setActiveTab('students')}
-            className="w-full sm:w-auto px-8 py-3.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all"
+            className="w-full sm:w-auto px-8 py-3.5 bg-white border border-slate-200 text-black dark:text-white rounded-xl font-bold text-sm hover:bg-slate-50 transition-all"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="w-full sm:w-auto px-8 py-3.5 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
+            disabled={isSubmitting}
+            className={`w-full sm:w-auto px-8 py-3.5 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            <CheckCircle2 size={18} />
-            Generate Enrollment
+            {isSubmitting ? <Activity size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+            {studentId ? 'Update Learner' : 'Generate Enrollment'}
           </button>
         </div>
       </form>
+      )}
     </div>
   );
 };
 
 export default RegisterLearner;
+
 

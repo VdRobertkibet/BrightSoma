@@ -28,43 +28,60 @@ import {
   Smartphone,
   Banknote,
   Loader2,
+  Eye,
+  Printer,
+  Receipt,
+  SearchCode,
+  AlertCircle,
+  Plus,
+  Activity,
+  Check,
   ArrowRight,
   Package,
   FileText,
-  Plus,
-  ArrowLeft,
-  SearchCode,
-  Check,
-  AlertCircle,
-  Receipt,
-  Printer
+  ArrowLeft
 } from 'lucide-react';
+import { useReactToPrint } from 'react-to-print';
 import { motion, AnimatePresence } from 'motion/react';
 import { Student, CBCGrade, BoardingType, StudentStatus } from '../types';
 import InvoiceReceipt from './InvoiceReceipt';
 import { CBC_GRADES } from '../constants';
 import toast from 'react-hot-toast';
 import { db, auth } from '../src/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
 interface StudentsModuleProps {
   setActiveTab: (tab: string) => void;
-  initialTab?: 'directory' | 'classrooms';
-  role?: string | null;
+  setEditingStudentId?: (id: string | null) => void;
+  role: 'ADMIN' | 'DIRECTOR' | 'TEACHER' | 'FINANCE' | 'PARENT' | 'SUPER_ADMIN' | 'PLATFORM_ADMIN';
   isDarkMode?: boolean;
+  initialTab?: 'directory' | 'classrooms';
+  moduleTab?: 'directory' | 'classrooms';
+  setModuleTab?: (tab: 'directory' | 'classrooms') => void;
+  isMockAuth?: boolean;
 }
 
-const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTab, role, isDarkMode }) => {
+const StudentsModule: React.FC<StudentsModuleProps> = ({ 
+  setActiveTab, 
+  setEditingStudentId, 
+  initialTab, 
+  role, 
+  isDarkMode, 
+  moduleTab: propModuleTab, 
+  setModuleTab: propSetModuleTab,
+  isMockAuth = false
+}) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [filterType, setFilterType] = useState<'All' | BoardingType>('All');
   const [filterGrade, setFilterGrade] = useState<'All' | CBCGrade>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [moduleTab, setModuleTab] = useState<'directory' | 'classrooms'>(initialTab || 'directory');
+  
+  const [localModuleTab, setLocalModuleTab] = useState<'directory' | 'classrooms'>(initialTab || 'directory');
+  const moduleTab = propModuleTab || localModuleTab;
+  const setModuleTab = propSetModuleTab || setLocalModuleTab;
+
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [teacherData, setTeacherData] = useState<any>(null);
   const [enteredClassCode, setEnteredClassCode] = useState('');
@@ -106,11 +123,22 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
   const [invoiceStudent, setInvoiceStudent] = useState<Student | null>(null);
   const [invoiceFeeStructures, setInvoiceFeeStructures] = useState<any[]>([]);
   const [invoicePayments, setInvoicePayments] = useState<any[]>([]);
-  const [invoiceSchoolName, setInvoiceSchoolName] = useState('BrightSoma Institution');
+  const [invoiceSchoolName, setInvoiceSchoolName] = useState('Institution');
   const [invoiceSchoolLogo, setInvoiceSchoolLogo] = useState<string | null>(null);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (isMockAuth) {
+      const loadMockData = async () => {
+        const { MOCK_STUDENTS } = await import('../demoData');
+        setStudents(MOCK_STUDENTS);
+        setIsLoading(false);
+        setCurrentUserRole(role);
+      };
+      loadMockData();
+      return;
+    }
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setStudents([]);
@@ -149,7 +177,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, [isMockAuth]);
 
   // Fetch Class Teacher and classroom data
   useEffect(() => {
@@ -199,15 +227,11 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
           }
         }
 
-        // 2. Fetch Textbooks (Mock for now as per plan)
-        setTextbooks([
-          { id: '1', title: 'Literacy Activities G1', assigned: 45, total: 45 },
-          { id: '2', title: 'Math Activities G1', assigned: 42, total: 45 },
-          { id: '3', title: 'Kiswahili Language G1', assigned: 45, total: 45 },
-        ]);
+        // 2. Fetch Textbooks
+        setTextbooks([]);
 
-        // 3. Fetch Funds (Mock)
-        setClassFunds(45000);
+        // 3. Fetch Funds
+        setClassFunds(0);
 
         // 4. Fetch Inventory from Firestore
         const invRef = collection(db, 'classroomInventory');
@@ -216,11 +240,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
         if (!invSnap.empty) {
           setClassroomInventory(invSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         } else {
-          setClassroomInventory([
-            { id: 'i1', name: 'Student Desks', quantity: 45, condition: 'Fair' },
-            { id: 'i2', name: 'Teacher Table', quantity: 1, condition: 'New' },
-            { id: 'i3', name: 'Whiteboard', quantity: 1, condition: 'New' },
-          ]);
+          setClassroomInventory([]);
         }
 
         // 5. Fetch All Inventory for selectors
@@ -275,8 +295,23 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
     });
   }, [students, filterType, filterGrade, searchQuery]);
 
+  const [showStudentDetail, setShowStudentDetail] = useState(false);
+  const [selectedStudentDetail, setSelectedStudentDetail] = useState<any>(null);
+
   const handleOpenRegister = () => {
     setActiveTab('register-learner');
+  };
+
+  const handleOpenEdit = (student: any) => {
+    if (setEditingStudentId) {
+      setEditingStudentId(student.id);
+      setActiveTab('edit-learner');
+    }
+  };
+
+  const handleOpenDetail = (student: any) => {
+    setSelectedStudentDetail(student);
+    setShowStudentDetail(true);
   };
 
   const handleOpenInvoice = async (student: Student) => {
@@ -345,11 +380,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
     }
   };
 
-  const handleOpenEdit = (student: Student) => {
-    setEditingStudent(student);
-    setFormErrors({});
-    setShowModal(true);
-  };
+
 
   const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, studentId: string | null, reason: string, confirmText: string}>({isOpen: false, studentId: null, reason: '', confirmText: ''});
 
@@ -371,118 +402,57 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
         return;
       }
 
+      // 1. Fetch all payments for this student to subtract from bank balance
+      const paymentsQuery = query(collection(db, 'payments'), where('studentId', '==', deleteModal.studentId));
+      const paymentsSnapshot = await getDocs(paymentsQuery);
+      let cashToRefund = 0;
+      let bankToRefund = 0;
+
+      const paymentDeletions: Promise<void>[] = [];
+      paymentsSnapshot.forEach((pDoc) => {
+        const pData = pDoc.data();
+        if (pData.method === 'Cash') {
+          cashToRefund += pData.amount;
+        } else {
+          bankToRefund += pData.amount;
+        }
+        paymentDeletions.push(deleteDoc(doc(db, 'payments', pDoc.id)));
+      });
+
+      // 2. Update Bank Balance
+      const schoolId = user.uid; // Default if not staff
+      let effectiveSchoolId = schoolId;
+      const staffDocRef = doc(db, 'staff', user.uid);
+      const staffDocSnap = await getDoc(staffDocRef);
+      if (staffDocSnap.exists()) {
+        effectiveSchoolId = staffDocSnap.data().schoolId;
+      }
+
+      const bankAccountsQuery = query(collection(db, 'bank_accounts'), where('schoolId', '==', effectiveSchoolId));
+      const bankAccountsSnapshot = await getDocs(bankAccountsQuery);
+      
+      if (!bankAccountsSnapshot.empty) {
+        const bankAccountDoc = bankAccountsSnapshot.docs[0];
+        await updateDoc(doc(db, 'bank_accounts', bankAccountDoc.id), {
+          cashInHand: increment(-cashToRefund),
+          bankBalance: increment(-bankToRefund)
+        });
+      }
+
+      // 3. Delete student and payments
+      await Promise.all(paymentDeletions);
       await deleteDoc(doc(db, 'students', deleteModal.studentId));
-      toast.success('Learner record removed successfully.');
+      
+      toast.success('Learner record and associated financial data removed.');
       
       setDeleteModal({isOpen: false, studentId: null, reason: '', confirmText: ''});
     } catch (error) {
       console.error("Error deleting document: ", error);
-      toast.error('Failed to remove learner record.');
+      toast.error('Failed to fully remove learner record and balances.');
     }
   };
 
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    
-    const admissionNumber = formData.get('admissionNumber') as string;
-    const name = formData.get('name') as string;
-    const fatherPhone = formData.get('fatherPhone') as string;
-    const motherPhone = formData.get('motherPhone') as string;
-    const emergencyContact = formData.get('emergencyContact') as string;
 
-    const errors: Record<string, string> = {};
-
-    if (!name.trim()) {
-      errors.name = 'Full name is required';
-    }
-
-    if (!admissionNumber.trim()) {
-      errors.admissionNumber = 'Admission number is required';
-    } else if (!editingStudent && students.some(s => s.admissionNumber === admissionNumber)) {
-      errors.admissionNumber = 'Admission number must be unique';
-    } else if (editingStudent && students.some(s => s.id !== editingStudent.id && s.admissionNumber === admissionNumber)) {
-      errors.admissionNumber = 'Admission number must be unique';
-    }
-
-    const phoneRegex = /^(\+254|0)[1-9]\d{8}$/;
-    
-    if (fatherPhone && !phoneRegex.test(fatherPhone.replace(/\s+/g, ''))) {
-      errors.fatherPhone = 'Invalid phone format (e.g. 0712345678)';
-    }
-    if (motherPhone && !phoneRegex.test(motherPhone.replace(/\s+/g, ''))) {
-      errors.motherPhone = 'Invalid phone format (e.g. 0712345678)';
-    }
-    if (emergencyContact && !phoneRegex.test(emergencyContact.replace(/\s+/g, ''))) {
-      errors.emergencyContact = 'Invalid phone format (e.g. 0712345678)';
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
-    setFormErrors({});
-
-    const studentData = {
-      schoolId: '', // Will be set below
-      admissionNumber,
-      nemisNumber: formData.get('nemisNumber') as string,
-      name,
-      grade: formData.get('grade') as CBCGrade,
-      stream: formData.get('stream') as string,
-      boardingType: formData.get('boardingType') as BoardingType,
-      status: formData.get('status') as StudentStatus,
-      parentInfo: {
-        fatherName: formData.get('fatherName') as string,
-        fatherPhone: formData.get('fatherPhone') as string,
-        motherName: formData.get('motherName') as string,
-        motherPhone: formData.get('motherPhone') as string,
-        emergencyContact: formData.get('emergencyContact') as string,
-      },
-      medicalInfo: {
-        bloodGroup: formData.get('bloodGroup') as string,
-        allergies: formData.get('allergies') as string,
-        conditions: formData.get('conditions') as string,
-      },
-      performance: Number(formData.get('performance')) || 70,
-      balance: Number(formData.get('balance')) || 0,
-    };
-
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-         toast.error('Authentication required to save records.');
-         return;
-      }
-
-      let schoolId = user.uid;
-      const staffDocRef = doc(db, 'staff', user.uid);
-      const staffDocSnap = await getDoc(staffDocRef);
-      if (staffDocSnap.exists()) {
-        schoolId = staffDocSnap.data().schoolId;
-      }
-      
-      const finalStudentData = { ...studentData, schoolId };
-
-      if (editingStudent) {
-        await updateDoc(doc(db, 'students', editingStudent.id), finalStudentData);
-        toast.success('Learner record updated successfully.');
-      } else {
-        await addDoc(collection(db, 'students'), finalStudentData);
-        toast.success('New learner registered successfully.');
-        // Signal onboarding guide
-        localStorage.setItem('onboarding_learner_added', Date.now().toString());
-        window.dispatchEvent(new Event('storage'));
-      }
-      setShowModal(false);
-      setEditingStudent(null);
-    } catch (error: any) {
-      console.error("Error saving document: ", error);
-      const errorMessage = error.message || 'Failed to save learner record.';
-      toast.error(errorMessage);
-    }
-  };
 
   const saveClassNotes = async () => {
     if (!classTeacher) {
@@ -513,16 +483,25 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
       if (staffDocSnap.exists()) schoolId = staffDocSnap.data().schoolId;
 
       const newItem = {
-        ...inventoryForm,
+        name: inventoryForm.name,
+        quantity: inventoryForm.quantity,
+        condition: inventoryForm.condition,
+        category: 'Classroom Asset',
         schoolId,
         grade: selectedClassroomGrade,
+        status: 'Available',
         createdAt: new Date().toISOString()
       };
-      const docRef = await addDoc(collection(db, 'classroomInventory'), newItem);
-      setClassroomInventory([...classroomInventory, { ...newItem, id: docRef.id }]);
+      
+      // Add to inventory collection so it's available for allocation
+      const docRef = await addDoc(collection(db, 'inventory'), newItem);
+      const addedItem = { ...newItem, id: docRef.id };
+      
+      setClassroomInventory([...classroomInventory, addedItem]);
+      setAllInventory([...allInventory, addedItem]);
       setShowInventoryModal(false);
       setInventoryForm({ name: '', quantity: 1, condition: 'New' });
-      toast.success('Inventory item added.');
+      toast.success('Inventory item added and available for allocation.');
     } catch (e) {
       toast.error('Failed to add item.');
     }
@@ -634,145 +613,120 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 font-sans">
-      {/* Standardized Header (Finance Style) - Responsive fix */}
-      <div className="relative -mx-4 md:-mx-8 -mt-4 md:-mt-8 bg-[#334155] py-5 border-b border-[#1f507a] shadow-sm px-4 md:px-8">
-        <div className="w-full px-4 md:px-8">
-          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-white/10 rounded-xl">
-                <Users size={24} className="text-white" />
-              </div>
-                <div className="flex flex-col">
-                  <h2 className="text-xl font-bold text-white tracking-tight">Learners & Class Management</h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-xs text-blue-100">Directly manage classroom resources and performance.</p>
-                  </div>
-                </div>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="p-1 block w-full sm:w-auto bg-black/20 rounded-xl flex-shrink-0 flex items-center gap-1 border border-white/10 overflow-x-auto hide-scrollbar">
-                <button 
-                  onClick={() => setModuleTab('directory')} 
-                  className={`flex-1 sm:flex-none whitespace-nowrap text-center px-4 py-2 rounded-lg text-xs font-bold transition-all ${moduleTab === 'directory' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-300 hover:text-white'}`}
-                >
-                  Directory
-                </button>
-                {(currentUserRole === 'ADMIN' || (teacherData?.classTeacherOf && teacherData?.classTeacherOf !== '')) && (
-                  <button 
-                    onClick={() => setModuleTab('classrooms')} 
-                    className={`flex-1 sm:flex-none whitespace-nowrap text-center justify-center px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${moduleTab === 'classrooms' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-300 hover:text-white'}`}
-                  >
-                    <Home size={14} /> Classrooms
-                  </button>
-                )}
-              </div>
-              <div className="h-8 w-px bg-white/10 mx-2 hidden xl:block"></div>
-              <div className="px-5 py-2 bg-black/20 border border-white/10 rounded-xl min-w-[120px]">
-                <p className="text-[10px] font-bold text-blue-200 uppercase mb-0.5">Total Enrolled</p>
-                <p className="text-lg font-bold text-white leading-none">{students.length}</p>
-              </div>
-
-              <button 
-                onClick={handleOpenRegister}
-                className="flex items-center justify-center gap-2 px-6 py-2.5 bg-white text-orange-600 rounded-xl text-[12.5px] font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95 group border border-white/20"
-              >
-                <UserPlus size={16} className="group-hover:scale-110 transition-transform font-bold" /> 
-                Register Learner
-              </button>
-            </div>
-          </div>
 
           {moduleTab === 'directory' && (
-            <>
-              <div className="mt-8 pt-6 border-t border-white/10 flex flex-col xl:flex-row xl:items-center justify-between gap-6 animate-in slide-in-from-top-4 duration-500">
-                <div className="flex p-1.5 bg-black/10 border border-white/10 rounded-[2rem] overflow-x-auto hide-scrollbar w-fit">
-                  <div className="flex items-center gap-1 px-4 py-2 text-white/40 border-r border-white/10 mr-2">
-                    <Search size={14} />
-                  </div>
-                  <input 
-                    type="text"
-                    placeholder="Search learners..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-transparent text-[11px] font-bold text-white placeholder:text-white/30 outline-none px-4 min-w-[200px]"
-                  />
-                </div>
+              <>
+               {/* Stats Pills Row — horizontally scrollable on mobile */}
+               <div className="flex flex-col gap-4 animate-in slide-in-from-top-4 duration-500">
 
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-3 px-5 py-2.5 bg-black/10 border border-white/10 rounded-[2rem]">
-                    <Filter size={14} className="text-orange-200" />
-                    <select 
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value as any)}
-                      className="bg-transparent text-[11px] font-bold text-white outline-none cursor-pointer"
-                    >
-                      <option value="All" className="text-slate-900">All Models</option>
-                      <option value="Day Scholar" className="text-slate-900">Day Scholar</option>
-                      <option value="Full Boarder" className="text-slate-900">Full Boarder</option>
-                      <option value="Weekly Boarder" className="text-slate-900">Weekly Boarder</option>
-                    </select>
-                  </div>
+                 {/* Row 1: Search Bar — more responsive */}
+                 <div className="flex p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-[1.5rem] w-full md:max-w-sm shadow-sm">
+                   <div className="flex items-center gap-1 px-4 py-2 text-slate-400 dark:text-slate-500 border-r border-slate-200 dark:border-slate-700 mr-2">
+                     <Search size={14} />
+                   </div>
+                   <input
+                     type="text"
+                     placeholder="Search learners..."
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                     className="bg-transparent text-[11px] font-black text-slate-900 dark:text-white placeholder:text-slate-400 outline-none px-4 flex-1"
+                   />
+                 </div>
 
-                  <div className="flex items-center gap-3 px-5 py-2.5 bg-black/10 border border-white/10 rounded-[2rem]">
-                    <GraduationCap size={14} className="text-orange-200" />
-                    <select 
-                      value={filterGrade}
-                      onChange={(e) => setFilterGrade(e.target.value as any)}
-                      className="bg-transparent text-[11px] font-bold text-white outline-none cursor-pointer"
-                    >
-                      <option value="All" className="text-slate-900">All Grades</option>
-                      {CBC_GRADES.map(g => <option key={g} value={g} className="text-slate-900">{g}</option>)}
-                    </select>
-                  </div>
+                 {/* Row 2: Stats Pills — refined horizontal scroll */}
+                 <div className="flex items-center gap-3 overflow-x-auto pb-2 no-scrollbar">
+                   {[
+                     { label: 'Total Learners', count: students.length, action: () => { setFilterType('All'); setFilterGrade('All'); }, active: filterType === 'All' && filterGrade === 'All', icon: Users },
+                     { label: 'Active', count: students.filter(s => s.status === 'Active').length, action: () => {}, active: false, icon: CheckCircle2 },
+                     { label: 'Day Scholars', count: students.filter(s => s.boardingType === 'Day Scholar').length, action: () => setFilterType('Day Scholar'), active: filterType === 'Day Scholar', icon: Home },
+                     { label: 'Boarders', count: students.filter(s => s.boardingType === 'Full Boarder').length, action: () => setFilterType('Full Boarder'), active: filterType === 'Full Boarder', icon: Heart },
+                     { label: 'Fee Arrears', count: students.filter(s => (s.balance || 0) > 0).length, action: () => {}, active: false, icon: AlertCircle }
+                   ].map((btn, i) => (
+                     <button
+                       key={i}
+                       onClick={btn.action}
+                       className={`flex-shrink-0 flex items-center gap-2.5 px-5 py-2.5 ${
+                         btn.active
+                           ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/25'
+                           : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                       } border border-slate-200 dark:border-slate-700 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap active:scale-95`}
+                     >
+                       <btn.icon size={14} className={btn.active ? 'text-white' : 'text-orange-500'} />
+                       {btn.label}
+                       <span className={`ml-1 ${
+                         btn.active
+                           ? 'bg-white/20 text-white'
+                           : 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-200'
+                       } px-2 py-0.5 rounded-lg text-[10px] font-bold`}>{btn.count}</span>
+                     </button>
+                   ))}
+                 </div>
 
-                  <button 
-                    onClick={() => {
-                      setSearchQuery('');
-                      setFilterType('All');
-                      setFilterGrade('All');
-                    }}
-                    className="px-6 py-2.5 bg-white/10 text-white rounded-[2rem] text-[11px] font-bold hover:bg-white/20 transition-all active:scale-95 border border-white/10"
-                  >
-                    Reset Filter
-                  </button>
-                </div>
-              </div>
+                 {/* Row 3: Grade + Type Filters — horizontal scroll */}
+                 <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                   <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
+                     <Filter size={14} className="text-slate-400" />
+                     <select
+                       value={filterType}
+                       onChange={(e) => setFilterType(e.target.value as any)}
+                       className="bg-transparent text-[11px] font-bold text-slate-900 dark:text-white outline-none cursor-pointer whitespace-nowrap"
+                     >
+                       <option value="All" className="text-slate-900 dark:text-slate-200">All Models</option>
+                       <option value="Day Scholar" className="text-slate-900 dark:text-slate-200">Day Scholar</option>
+                       <option value="Full Boarder" className="text-slate-900 dark:text-slate-200">Full Boarder</option>
+                       <option value="Weekly Boarder" className="text-slate-900 dark:text-slate-200">Weekly Boarder</option>
+                     </select>
+                   </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-2 pb-2 animate-in slide-in-from-top-4 duration-500 delay-75">
-                {[
-                  { label: 'Total Learners', count: students.length, action: () => { setFilterType('All'); setFilterGrade('All'); }, active: filterType === 'All' && filterGrade === 'All' },
-                  { label: 'Active', count: students.filter(s => s.status === 'Active').length, action: () => {}, active: false },
-                  { label: 'Day Scholars', count: students.filter(s => s.boardingType === 'Day Scholar').length, action: () => setFilterType('Day Scholar'), active: filterType === 'Day Scholar' },
-                  { label: 'Boarders', count: students.filter(s => s.boardingType === 'Full Boarder').length, action: () => setFilterType('Full Boarder'), active: filterType === 'Full Boarder' },
-                  { label: 'Fee Arrears', count: students.filter(s => (s.balance || 0) > 0).length, action: () => {}, active: false }
-                ].map((btn, i) => (
-                  <button 
-                    key={i} 
-                    onClick={btn.action} 
-                    className={`flex items-center gap-2 px-4 py-2 ${btn.active ? 'bg-white text-orange-600 shadow-sm' : 'bg-black/20 hover:bg-black/30 text-white'} border border-white/10 rounded-[2rem] text-xs font-bold transition-all`}
-                  >
-                    {btn.label} 
-                    <span className={`${btn.active ? 'bg-orange-100 text-orange-600' : 'bg-black/30 text-orange-100'} px-2 py-0.5 rounded-full text-[10px]`}>{btn.count}</span>
-                  </button>
-                ))}
-              </div>
-            </>
+                   <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
+                     <GraduationCap size={14} className="text-slate-400" />
+                     <select
+                       value={filterGrade}
+                       onChange={(e) => setFilterGrade(e.target.value as any)}
+                       className="bg-transparent text-[11px] font-bold text-slate-900 dark:text-white outline-none cursor-pointer"
+                     >
+                       <option value="All" className="text-slate-900 dark:text-slate-200">All Grades</option>
+                       {CBC_GRADES.map(g => <option key={g} value={g} className="text-slate-900 dark:text-slate-200">{g}</option>)}
+                     </select>
+                   </div>
+
+                   <button
+                     onClick={() => {
+                       setSearchQuery('');
+                       setFilterType('All');
+                       setFilterGrade('All');
+                     }}
+                     className="flex-shrink-0 px-6 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-300 rounded-[2rem] text-[11px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95 border border-slate-200 dark:border-slate-700 whitespace-nowrap"
+                   >
+                     Reset Filter
+                   </button>
+                 </div>
+               </div>
+              </>
           )}
 
           {moduleTab === 'classrooms' && (
-            <div className="mt-8 pt-6 border-t border-white/10 flex flex-col xl:flex-row xl:items-center justify-between gap-6 animate-in slide-in-from-top-4 duration-500">
+            <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-6 animate-in slide-in-from-top-4 duration-500">
               <div className="flex flex-col gap-2">
-                <p className="text-[10px] font-bold text-orange-200 uppercase tracking-widest">Select a Classroom</p>
-                <div className="flex items-center gap-3 p-1.5 bg-black/20 border border-white/10 rounded-[1.5rem] w-fit">
-                  <select 
-                    value={selectedClassroomGrade}
-                    onChange={(e) => setSelectedClassroomGrade(e.target.value as CBCGrade)}
-                    className="bg-transparent text-sm font-bold text-white outline-none cursor-pointer pl-4 pr-8 py-2 appearance-none"
-                    style={{ backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1em' }}
-                  >
-                    {CBC_GRADES.map(g => <option key={g} value={g} className="text-slate-900">{g}</option>)}
-                  </select>
+                <p className="text-[10px] font-bold text-orange-600 tracking-widest">Select a Classroom</p>
+                {/* Grade buttons in a single horizontal scrollable row — no wrapping, no shrinking */}
+                <div
+                  className="flex items-center gap-2 overflow-x-auto pb-1"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {CBC_GRADES.map(g => (
+                    <button
+                      key={g}
+                      onClick={() => setSelectedClassroomGrade(g as CBCGrade)}
+                      className={`flex-shrink-0 px-4 py-2 rounded-2xl text-[11px] font-bold transition-all whitespace-nowrap border ${
+                        selectedClassroomGrade === g
+                          ? 'bg-orange-600 text-white border-orange-600 shadow-md shadow-orange-500/20'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-orange-400 hover:text-orange-600'
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  ))}
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -787,7 +741,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                          {classTeacher ? classTeacher.name.charAt(0) : <UserCircle size={20} />}
                       </div>
                       <div>
-                         <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-tighter">Class Teacher</p>
+                         <p className="text-[10px] font-bold text-indigo-200 tracking-tighter">Class Teacher</p>
                          <p className="text-sm font-bold text-white">{classTeacher ? classTeacher.name : 'Unassigned'}</p>
                       </div>
                    </div>
@@ -795,8 +749,6 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
               </div>
             </div>
           )}
-        </div>
-      </div>
 
       <div className="max-w-7xl mx-auto space-y-10">
         <div className="space-y-6 pt-4">
@@ -812,8 +764,8 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
             <div className="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-inner transition-transform duration-500 hover:scale-110">
               <Users size={40} className="text-slate-300 dark:text-slate-600" strokeWidth={1.5} />
             </div>
-            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight mb-3 leading-tight">No Learners Found</h3>
-            <p className="text-slate-500 dark:text-slate-400 mb-10 max-w-md mx-auto text-sm font-medium leading-relaxed">
+            <h3 className="text-2xl font-bold text-black dark:text-slate-100 tracking-tight mb-3 leading-tight">No Learners Found</h3>
+            <p className="text-black dark:text-slate-400 mb-10 max-w-md mx-auto text-sm font-medium leading-relaxed">
               We couldn't find any learners matching your current filters. Try adjusting your search or register a new learner.
             </p>
             <button 
@@ -834,17 +786,25 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                    <span className="text-xs font-bold text-white bg-orange-500 px-3 py-1 rounded-full shadow-sm">All Learners</span>
                  </div>
                </div>
+               {['ADMIN', 'DIRECTOR', 'TEACHER', 'SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(role) && (
+                 <button 
+                   onClick={handleOpenRegister}
+                   className="text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 dark:bg-slate-700 dark:hover:bg-slate-600 border border-orange-100 dark:border-slate-600 rounded-full px-4 py-2 flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer whitespace-nowrap"
+                 >
+                   <UserPlus size={14} /> + New Learner
+                 </button>
+               )}
             </div>
             <div className="overflow-x-auto flex-1">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="p-4 pl-0">Learner Name</th>
-                    <th className="p-4">Admission No.</th>
-                    <th className="p-4">Grade / Stream</th>
-                    <th className="p-4">Boarding</th>
-                    <th className="p-4 text-right">Fee Balance</th>
-                    <th className="p-4 text-right pr-0">Actions</th>
+                  <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="p-4 pl-0 text-slate-700 dark:text-slate-200">Learner Name</th>
+                    <th className="p-4 text-slate-700 dark:text-slate-200">Admission No.</th>
+                    <th className="p-4 text-slate-700 dark:text-slate-200">Grade / Stream</th>
+                    <th className="p-4 text-slate-700 dark:text-slate-200">Boarding</th>
+                    <th className="p-4 text-right text-slate-700 dark:text-slate-200">Fee Balance</th>
+                    <th className="p-4 text-right pr-0 text-slate-700 dark:text-slate-200">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -857,47 +817,69 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                             <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-orange-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
                           </div>
                           <div>
-                            <p className="font-bold text-slate-800 dark:text-white text-sm">{student.name}</p>
-                            <p className="text-[11px] font-semibold text-slate-400 cursor-pointer hover:text-orange-600" onClick={() => handleOpenEdit(student)}>View Profile</p>
+                            <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{student.name}</p>
+                            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 cursor-pointer hover:text-orange-600 dark:hover:text-orange-400" onClick={() => handleOpenEdit(student)}>View Profile</p>
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                      <td className="p-4 text-sm font-semibold text-slate-800 dark:text-slate-300">
                         {student.admissionNumber}
                       </td>
-                      <td className="p-4">
-                        <div className="flex flex-col items-start gap-1">
-                          <span className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
-                            {student.grade}
-                          </span>
-                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider ml-1">{student.stream}</span>
+                      <td className="p-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl w-fit">
+                          <GraduationCap size={14} className="text-orange-500" />
+                          <div className="flex flex-col leading-none">
+                            <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">
+                              {student.grade}
+                            </span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{student.stream}</span>
+                          </div>
                         </div>
                       </td>
-                      <td className="p-4">
-                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/30 dark:border-orange-800 tracking-wide capitalize">
-                          {student.boardingType}
-                        </span>
+                      <td className="p-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-orange-50/50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30 rounded-xl w-fit">
+                          <Home size={14} className="text-orange-500" />
+                          <span className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wide">
+                            {student.boardingType}
+                          </span>
+                        </div>
                       </td>
-                      <td className="p-4 text-right">
-                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${student.balance < 0 ? 'bg-rose-50 text-rose-600 border border-rose-100 dark:bg-rose-900/30 dark:border-rose-800' : student.balance > 0 ? 'bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/30 dark:border-orange-800' : 'bg-green-50 text-green-600 border border-green-100 dark:bg-green-900/30 dark:border-green-800'}`}>
-                          {student.balance !== 0 ? `KES ${Math.abs(student.balance).toLocaleString()}` : 'Cleared'}
-                        </span>
+                      <td className="p-4 text-right whitespace-nowrap">
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${
+                          student.balance < 0 
+                            ? 'bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-900/20 dark:border-rose-900/30 dark:text-rose-400' 
+                            : student.balance > 0 
+                            ? 'bg-orange-50 border-orange-100 text-orange-600 dark:bg-orange-900/20 dark:border-orange-900/30 dark:text-orange-400' 
+                            : 'bg-green-50 border-green-100 text-green-600 dark:bg-green-900/20 dark:border-green-900/30 dark:text-green-400'
+                        }`}>
+                          <Banknote size={14} />
+                          <span className="text-[11px] font-black tracking-tight">
+                            {student.balance !== 0 ? `KES ${Math.abs(student.balance).toLocaleString()}` : 'Cleared'}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-4 text-right pr-0">
                         <div className="flex justify-end gap-2">
                           <button 
                             onClick={() => handleOpenInvoice(student)}
-                            className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/10 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold"
+                            className="p-2 text-black dark:text-white hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/10 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold"
                             title="Generate Invoice"
                           >
                             <Receipt size={14} /> Invoice
                           </button>
                           <button 
                             onClick={() => setActiveTab('academics')}
-                            className="p-2 text-slate-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold"
+                            className="p-2 text-black dark:text-white hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold"
                             title="View Report"
                           >
                             <FileText size={14} /> Report
+                          </button>
+                          <button 
+                            onClick={() => handleOpenDetail(student)}
+                            className="p-2 text-black dark:text-white hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold"
+                            title="View Details"
+                          >
+                            <Eye size={14} /> View
                           </button>
                           <button onClick={() => handleOpenEdit(student)} className="p-2 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-xl hover:bg-orange-100 transition-all"><Pencil size={14} /></button>
                           <button onClick={() => setDeleteModal({isOpen: true, studentId: student.id, reason: '', confirmText: ''})} className="p-2 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl hover:bg-rose-100 transition-all"><Trash2 size={14} /></button>
@@ -918,7 +900,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                 <div className="flex-1 space-y-4">
                   <div className="flex items-center gap-3">
                     <MessageSquare size={18} className="text-orange-400" />
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Class Announcements & Notes</h3>
+                    <h3 className="text-sm font-bold text-white tracking-wider">Class Announcements & Notes</h3>
                   </div>
                   <textarea 
                     value={classNotes}
@@ -939,7 +921,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                     {/* Voice Announcement Placeholder */}
                     <div className="relative group/voice">
                       <div className="absolute inset-0 bg-white/5 backdrop-blur-[2px] rounded-xl z-10 flex items-center justify-center border border-white/10 opacity-100 group-hover:opacity-0 transition-opacity pointer-events-none">
-                         <span className="text-[9px] font-bold text-orange-400 bg-orange-950/40 px-3 py-1 rounded-full uppercase tracking-widest border border-orange-500/20 shadow-xl">Coming Soon</span>
+                         <span className="text-[9px] font-bold text-orange-400 bg-orange-950/40 px-3 py-1 rounded-full tracking-widest border border-orange-500/20 shadow-xl">Coming Soon</span>
                       </div>
                       <div className="flex flex-col gap-2">
                         <button 
@@ -952,7 +934,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                       
                       {/* Explanatory Note on Hover/Visible */}
                       <div className="absolute top-full left-0 mt-3 w-72 p-4 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                         <p className="text-[10px] font-bold text-indigo-300 uppercase mb-1 tracking-tighter">Voice Broadcast Feature</p>
+                         <p className="text-[10px] font-bold text-indigo-300 mb-1 tracking-tighter">Voice Broadcast Feature</p>
                          <p className="text-[11px] font-medium text-slate-300 leading-relaxed">
                            Write an announcement and push it to all classrooms via voice broadcast. Select target grades and streams for the announcement.
                          </p>
@@ -972,8 +954,8 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                       <Book size={20} className="text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-800 dark:text-white">Learning Materials</h3>
-                      <p className="text-[11px] font-semibold text-slate-400">Assigned per learner</p>
+                      <h3 className="font-bold text-black dark:text-white">Learning Materials</h3>
+                      <p className="text-[11px] font-semibold text-black dark:text-white">Assigned per learner</p>
                     </div>
                   </div>
                   <div className="space-y-4">
@@ -986,8 +968,8 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                     </button>
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl flex justify-between items-center">
                       <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400">Total Textbooks</p>
-                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{textbooks.reduce((acc, curr) => acc + curr.assigned, 0)}</p>
+                        <p className="text-[10px] font-bold text-black dark:text-white">Total Textbooks</p>
+                        <p className="text-lg font-bold text-black dark:text-slate-200">{textbooks.reduce((acc, curr) => acc + curr.assigned, 0)}</p>
                       </div>
                       <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs">
                         100%
@@ -996,7 +978,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                     <div className="space-y-1.5">
                        {textbooks.map(tb => (
                          <div key={tb.id} className="flex items-center justify-between text-[11px] font-bold px-1">
-                            <span className="text-slate-500">{tb.title}</span>
+                            <span className="text-black dark:text-white">{tb.title}</span>
                             <span className="text-blue-600">{tb.assigned}/{tb.total}</span>
                          </div>
                        ))}
@@ -1011,8 +993,8 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                       <Banknote size={20} className="text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-800 dark:text-white">Fund Allocation</h3>
-                      <p className="text-[11px] font-semibold text-slate-400">Operational budget</p>
+                      <h3 className="font-bold text-black dark:text-white">Fund Allocation</h3>
+                      <p className="text-[11px] font-semibold text-black dark:text-white">Operational budget</p>
                     </div>
                   </div>
                   <div className="space-y-4">
@@ -1025,7 +1007,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                     </button>
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl flex justify-between items-center">
                       <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400">Class Budget</p>
+                        <p className="text-[10px] font-bold text-black dark:text-white">Class Budget</p>
                         <p className="text-lg font-bold text-green-600 dark:text-green-400">KES {classFunds.toLocaleString()}</p>
                       </div>
                     </div>
@@ -1045,8 +1027,8 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                       <Package size={20} className="text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-800 dark:text-white">Physical Inventory</h3>
-                      <p className="text-[11px] font-semibold text-slate-400">Classroom assets</p>
+                      <h3 className="font-bold text-black dark:text-white">Physical Inventory</h3>
+                      <p className="text-[11px] font-semibold text-black dark:text-white">Classroom assets</p>
                     </div>
                   </div>
                   <div className="space-y-4">
@@ -1059,14 +1041,14 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                     </button>
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl flex justify-between items-center">
                       <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400">Tracked Assets</p>
-                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{classroomInventory.length} Items</p>
+                        <p className="text-[10px] font-bold text-black dark:text-white">Tracked Assets</p>
+                        <p className="text-lg font-bold text-black dark:text-slate-200">{classroomInventory.length} Items</p>
                       </div>
                     </div>
                     <div className="space-y-2">
                        {classroomInventory.slice(0, 2).map(item => (
                          <div key={item.id} className="flex items-center justify-between text-[11px] font-bold px-1 border-b border-slate-100 dark:border-slate-900 pb-1">
-                            <span className="text-slate-500">{item.name} ({item.quantity})</span>
+                            <span className="text-black dark:text-white">{item.name} ({item.quantity})</span>
                             <span className="text-purple-600">{item.condition}</span>
                          </div>
                        ))}
@@ -1087,14 +1069,14 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                <div className="flex justify-between items-center mb-6">
                   <div>
                     <h3 className="text-lg font-bold dark:text-white">Class Roster</h3>
-                    <p className="text-[11px] font-semibold text-slate-400">Showing learners currently enrolled in {selectedClassroomGrade}</p>
+                    <p className="text-[11px] font-semibold text-black dark:text-white">Showing learners currently enrolled in {selectedClassroomGrade}</p>
                   </div>
                </div>
                
                <div className="overflow-x-auto">
                  <table className="w-full text-left border-collapse">
                    <thead>
-                     <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                     <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-bold text-black dark:text-white tracking-wider">
                        <th className="p-4 pl-0">Learner Name</th>
                        <th className="p-4">Stream</th>
                        <th className="p-4">TextBooks Assigned</th>
@@ -1107,10 +1089,10 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                           <td className="p-4 pl-0">
                             <div className="flex items-center gap-3">
                               <img src={`https://picsum.photos/seed/${student.id}/40`} className="w-8 h-8 rounded-full object-cover" alt={student.name} referrerPolicy="no-referrer" />
-                              <span className="font-bold text-slate-800 dark:text-white text-sm">{student.name}</span>
+                              <span className="font-bold text-black dark:text-white text-sm">{student.name}</span>
                             </div>
                           </td>
-                          <td className="p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">{student.stream || 'N/A'}</td>
+                          <td className="p-4 font-semibold text-black dark:text-slate-300 text-sm">{student.stream || 'N/A'}</td>
                           <td className="p-4">
                              <div className="flex items-center gap-2 group/remark">
                                 <input 
@@ -1118,16 +1100,16 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                                   defaultValue={(student as any).classroomRemark || ''} 
                                   onBlur={(e) => handleUpdateStudentRemark(student.id, e.target.value)}
                                   placeholder="Add remark..." 
-                                  className="bg-transparent border-b border-dashed border-slate-200 dark:border-slate-700 text-[11px] font-medium text-slate-500 focus:text-slate-900 dark:focus:text-white focus:border-orange-500 outline-none w-48 transition-all"
+                                  className="bg-transparent border-b border-dashed border-slate-200 dark:border-slate-700 text-[11px] font-medium text-black dark:text-white focus:text-black dark:focus:text-white focus:border-orange-500 outline-none w-48 transition-all"
                                 />
                              </div>
                           </td>
-                          <td className="p-4 text-right font-bold text-slate-700 dark:text-slate-200 text-sm">KES {(student as any).balance > 0 ? '0' : '1,500'}</td>
+                          <td className="p-4 text-right font-bold text-black dark:text-slate-200 text-sm">KES {(student as any).balance > 0 ? '0' : '1,500'}</td>
                        </tr>
                      ))}
                      {students.filter(s => s.grade === selectedClassroomGrade).length === 0 && (
                         <tr>
-                          <td colSpan={4} className="p-8 text-center text-sm font-medium text-slate-500">No learners assigned to this classroom yet.</td>
+                          <td colSpan={4} className="p-8 text-center text-sm font-medium text-black dark:text-white">No learners assigned to this classroom yet.</td>
                         </tr>
                      )}
                    </tbody>
@@ -1141,161 +1123,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
 
       </div>
 
-      {/* Registration Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] shadow-2xl border border-white/20 dark:border-slate-800 p-8 md:p-12 relative animate-in zoom-in duration-500">
-            <button 
-              onClick={() => setShowModal(false)}
-              className="absolute top-8 right-8 p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200 shadow-sm transition-all"
-            >
-              <X size={24} />
-            </button>
 
-            <div className="flex flex-col items-center text-center mb-10">
-              <div className="p-4 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-3xl mb-4">
-                {editingStudent ? <Pencil size={32} /> : <UserPlus size={32} />}
-              </div>
-              <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
-                {editingStudent ? 'Update Learner' : 'Register Learner'}
-              </h3>
-              <p className="text-xs font-medium text-slate-500 mt-2">
-                Fill in the required details below
-              </p>
-            </div>
-
-            <form className="space-y-12" onSubmit={handleFormSubmit}>
-              {/* Section 1: Core Identification */}
-              <div className="space-y-8">
-                <div className="flex items-center gap-2 px-4 py-2 bg-orange-50/50 dark:bg-orange-900/10 rounded-xl w-fit">
-                  <h4 className="text-xs font-bold text-orange-600 dark:text-orange-400">Core Identification</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 capitalize flex items-center gap-1 ml-1">Full Names <span className="text-rose-500">*</span></label>
-                    <input name="name" type="text" defaultValue={editingStudent?.name} className={`w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border ${formErrors.name ? 'border-rose-500 focus:ring-rose-500/20' : 'border-slate-100 dark:border-slate-700 focus:ring-orange-500/20'} rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 shadow-sm outline-none transition-all`} placeholder="Enter Full Name" required />
-                    {formErrors.name && <p className="text-[10px] text-rose-500 ml-1">{formErrors.name}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 capitalize flex items-center gap-1 ml-1">Admission Number <span className="text-rose-500">*</span></label>
-                    <input name="admissionNumber" type="text" defaultValue={editingStudent?.admissionNumber || 'SCH/2026/'} className={`w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border ${formErrors.admissionNumber ? 'border-rose-500 focus:ring-rose-500/20' : 'border-slate-100 dark:border-slate-700 focus:ring-orange-500/20'} rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 shadow-sm outline-none transition-all`} placeholder="SCH/2026/001" required />
-                    {formErrors.admissionNumber && <p className="text-[10px] text-rose-500 ml-1">{formErrors.admissionNumber}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Nemis Number</label>
-                    <input name="nemisNumber" type="text" defaultValue={editingStudent?.nemisNumber} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-orange-500/20 shadow-sm outline-none transition-all" placeholder="Kenya Learner ID" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Grade</label>
-                    <select name="grade" defaultValue={editingStudent?.grade || CBCGrade.G1} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-orange-500/20 shadow-sm outline-none transition-all cursor-pointer">
-                      {CBC_GRADES.map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Stream</label>
-                    <input name="stream" type="text" defaultValue={editingStudent?.stream} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-orange-500/20 shadow-sm outline-none transition-all" placeholder="e.g. Jasmine" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Boarding Type</label>
-                    <select name="boardingType" defaultValue={editingStudent?.boardingType || 'Day Scholar'} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-orange-500/20 shadow-sm outline-none transition-all cursor-pointer">
-                      <option value="Day Scholar">Day Scholar</option>
-                      <option value="Full Boarder">Full Boarder</option>
-                      <option value="Weekly Boarder">Weekly Boarder</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Status</label>
-                    <select name="status" defaultValue={editingStudent?.status || 'Active'} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 shadow-sm outline-none transition-all cursor-pointer">
-                      <option value="Active">Active</option>
-                      <option value="Transferred Out">Transferred Out</option>
-                      <option value="Transferred In">Transferred In</option>
-                      <option value="Completed">Completed</option>
-                      <option value="Withdrawn">Withdrawn</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 2: Parent/Guardian */}
-              <div className="space-y-8">
-                <div className="flex items-center gap-2 px-4 py-2 bg-orange-50/50 dark:bg-orange-900/10 rounded-xl w-fit">
-                  <h4 className="text-xs font-bold text-orange-600 dark:text-orange-400">Parent / Guardian Information</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Father's Name</label>
-                      <input name="fatherName" type="text" defaultValue={editingStudent?.parentInfo.fatherName} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 shadow-sm outline-none transition-all" placeholder="Father's Full Name" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Father's Phone</label>
-                      <input name="fatherPhone" type="tel" defaultValue={editingStudent?.parentInfo.fatherPhone} className={`w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border ${formErrors.fatherPhone ? 'border-rose-500 focus:ring-rose-500/20' : 'border-slate-100 dark:border-slate-700 focus:ring-blue-500/20'} rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 shadow-sm outline-none transition-all`} placeholder="07XX XXX XXX" />
-                      {formErrors.fatherPhone && <p className="text-[10px] text-rose-500 ml-1">{formErrors.fatherPhone}</p>}
-                    </div>
-                  </div>
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Mother's Name</label>
-                      <input name="motherName" type="text" defaultValue={editingStudent?.parentInfo.motherName} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 shadow-sm outline-none transition-all" placeholder="Mother's Full Name" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Mother's Phone</label>
-                      <input name="motherPhone" type="tel" defaultValue={editingStudent?.parentInfo.motherPhone} className={`w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border ${formErrors.motherPhone ? 'border-rose-500 focus:ring-rose-500/20' : 'border-slate-100 dark:border-slate-700 focus:ring-blue-500/20'} rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 shadow-sm outline-none transition-all`} placeholder="07XX XXX XXX" />
-                      {formErrors.motherPhone && <p className="text-[10px] text-rose-500 ml-1">{formErrors.motherPhone}</p>}
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Emergency Contact Number</label>
-                  <input name="emergencyContact" type="tel" defaultValue={editingStudent?.parentInfo.emergencyContact} className={`w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border ${formErrors.emergencyContact ? 'border-rose-500 focus:ring-rose-500/20' : 'border-slate-100 dark:border-slate-700 focus:ring-blue-500/20'} rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 shadow-sm outline-none transition-all`} placeholder="Required for urgent alerts" />
-                  {formErrors.emergencyContact && <p className="text-[10px] text-rose-500 ml-1">{formErrors.emergencyContact}</p>}
-                </div>
-              </div>
-
-              {/* Section 3: Medical Info */}
-              <div className="space-y-8">
-                <div className="flex items-center gap-2 px-4 py-2 bg-rose-50/50 dark:bg-rose-900/10 rounded-xl w-fit">
-                  <h4 className="text-xs font-bold text-rose-600 dark:text-rose-400">Medical Information</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Blood Group</label>
-                    <select name="bloodGroup" defaultValue={editingStudent?.medicalInfo.bloodGroup || 'Unknown'} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 shadow-sm outline-none transition-all cursor-pointer">
-                      {['Unknown', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Allergies</label>
-                    <input name="allergies" type="text" defaultValue={editingStudent?.medicalInfo.allergies} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 shadow-sm outline-none transition-all" placeholder="e.g. Peanuts, Penicillin" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 capitalize ml-1">Conditions</label>
-                    <input name="conditions" type="text" defaultValue={editingStudent?.medicalInfo.conditions} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-blue-500/20 shadow-sm outline-none transition-all" placeholder="e.g. Asthma, Diabetes" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-10 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3">
-                <button 
-                  type="submit"
-                  className="w-full py-4 bg-orange-600 text-white rounded-2xl text-sm font-bold tracking-wide hover:bg-orange-700 transition-all shadow-md active:scale-95"
-                >
-                  {editingStudent ? 'Update Record' : 'Save Record'}
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="w-full py-3 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
       {deleteModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12">
           <motion.div 
@@ -1318,18 +1146,18 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                 <Trash2 size={32} className="text-rose-600 dark:text-rose-400" strokeWidth={2.5} />
               </div>
               
-              <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight mb-3 leading-tight">Confirm Deletion</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-10 leading-relaxed">
+              <h3 className="text-2xl font-bold text-black dark:text-slate-100 tracking-tight mb-3 leading-tight">Confirm Deletion</h3>
+              <p className="text-black dark:text-slate-400 text-sm font-medium mb-10 leading-relaxed">
                 Are you sure you want to delete this learner record? This action is <span className="text-rose-600 font-bold capitalize">irreversible</span>.
               </p>
               
               <div className="space-y-8">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-slate-400 capitalize ml-1">Reason for deletion</label>
+                  <label className="text-[10px] font-bold text-black dark:text-white capitalize ml-1">Reason for deletion</label>
                   <select 
                     value={deleteModal.reason}
                     onChange={(e) => setDeleteModal({...deleteModal, reason: e.target.value})}
-                    className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500/20 transition-all cursor-pointer"
+                    className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-black dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500/20 transition-all cursor-pointer"
                   >
                     <option value="">Select a reason</option>
                     <option value="Transferred">Transferred</option>
@@ -1338,12 +1166,12 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                   </select>
                 </div>
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-slate-400 capitalize ml-1">Type "delete" to confirm</label>
+                  <label className="text-[10px] font-bold text-black dark:text-white capitalize ml-1">Type "delete" to confirm</label>
                   <input 
                     type="text"
                     value={deleteModal.confirmText}
                     onChange={(e) => setDeleteModal({...deleteModal, confirmText: e.target.value})}
-                    className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500/20 transition-all"
+                    className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-black dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-500/20 transition-all"
                     placeholder="delete"
                   />
                 </div>
@@ -1358,7 +1186,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                 </button>
                 <button 
                   onClick={() => setDeleteModal({isOpen: false, studentId: null, reason: '', confirmText: ''})} 
-                  className="w-full py-4 text-[10px] font-bold text-slate-400 capitalize hover:text-slate-600 transition-colors"
+                  className="w-full py-4 text-[10px] font-bold text-black dark:text-white capitalize hover:text-black transition-colors"
                 >
                   Cancel & Keep Record
                 </button>
@@ -1374,7 +1202,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
             <h3 className="text-2xl font-bold dark:text-white mb-6">Add Classroom Asset</h3>
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Asset Name</label>
+                <label className="text-[11px] font-bold text-black dark:text-white tracking-widest ml-1">Asset Name</label>
                 <input 
                   type="text" 
                   value={inventoryForm.name}
@@ -1385,7 +1213,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Quantity</label>
+                  <label className="text-[11px] font-bold text-black dark:text-white tracking-widest ml-1">Quantity</label>
                   <input 
                     type="number" 
                     value={inventoryForm.quantity}
@@ -1394,7 +1222,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Condition</label>
+                  <label className="text-[11px] font-bold text-black dark:text-white tracking-widest ml-1">Condition</label>
                   <select 
                     value={inventoryForm.condition}
                     onChange={(e) => setInventoryForm({...inventoryForm, condition: e.target.value})}
@@ -1415,7 +1243,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                 </button>
                 <button 
                   onClick={() => setShowInventoryModal(false)}
-                  className="w-full py-3 text-sm font-medium text-slate-400 hover:text-slate-600"
+                  className="w-full py-3 text-sm font-medium text-black dark:text-white hover:text-black"
                 >
                   Discard
                 </button>
@@ -1437,10 +1265,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
               {/* Header */}
               <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 sticky top-0 z-10">
                 <div className="flex items-center gap-4">
-                  <div className={`p-4 rounded-2xl ${
-                    allocationType === 'Material' ? 'bg-blue-50 text-blue-600' : 
-                    allocationType === 'Fund' ? 'bg-green-50 text-green-600' : 'bg-purple-50 text-purple-600'
-                  }`}>
+                  <div className={`p-4 rounded-2xl ${ allocationType === 'Material' ? 'bg-blue-50 text-blue-600' : allocationType === 'Fund' ? 'bg-green-50 text-green-600' : 'bg-purple-50 text-purple-600' }`}>
                     {allocationType === 'Material' ? <Book size={24} /> : 
                      allocationType === 'Fund' ? <Banknote size={24} /> : <Package size={24} />}
                   </div>
@@ -1449,14 +1274,14 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                       {allocationType === 'Material' ? 'Allocate Learning Materials' : 
                        allocationType === 'Fund' ? 'Record Fund Allocation' : 'Allocate Physical Assets'}
                     </h3>
-                    <p className="text-sm font-bold text-slate-400">Classroom grade: {selectedClassroomGrade}</p>
+                    <p className="text-sm font-bold text-black dark:text-white">Classroom grade: {selectedClassroomGrade}</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setShowAllocationModal(false)}
                   className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-all"
                 >
-                  <X size={20} className="text-slate-500" />
+                  <X size={20} className="text-black dark:text-white" />
                 </button>
               </div>
 
@@ -1498,15 +1323,15 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                 {/* Section 1: Basic Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Classroom</label>
-                    <div className="p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-300">
+                    <label className="text-[11px] font-bold text-black dark:text-white tracking-widest ml-1">Classroom</label>
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl text-sm font-bold text-black dark:text-slate-300">
                       {selectedClassroomGrade}
                     </div>
                   </div>
 
                   {allocationType !== 'Fund' && (
                     <div className="space-y-2">
-                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                      <label className="text-[11px] font-bold text-black dark:text-white tracking-widest ml-1">
                         Select {allocationType === 'Material' ? 'Learning Material' : 'Inventory Item'}
                       </label>
                       <select 
@@ -1535,7 +1360,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                   {allocationType === 'Fund' && (
                     <>
                       <div className="space-y-2">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Category</label>
+                        <label className="text-[11px] font-bold text-black dark:text-white tracking-widest ml-1">Category</label>
                         <select 
                           value={allocationData.category}
                           onChange={(e) => setAllocationData({ ...allocationData, category: e.target.value })}
@@ -1550,7 +1375,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Amount (KES)</label>
+                        <label className="text-[11px] font-bold text-black dark:text-white tracking-widest ml-1">Amount (KES)</label>
                         <input 
                           type="number"
                           value={allocationData.amount}
@@ -1566,7 +1391,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                   )}
 
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-400 tracking-widest ml-1">Allocation Type</label>
+                    <label className="text-[11px] font-bold text-black dark:text-white tracking-widest ml-1">Allocation Type</label>
                     <div className="flex flex-wrap md:flex-nowrap gap-2 p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl">
                       {[
                         { id: 'Single', label: 'Single Student' },
@@ -1576,9 +1401,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                         <button
                           key={mode.id}
                           onClick={() => setAllocationData({ ...allocationData, mode: mode.id, studentIds: [] })}
-                          className={`flex-1 min-w-[100px] py-3 text-[10px] font-bold rounded-xl transition-all whitespace-nowrap ${
-                            allocationData.mode === mode.id ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
-                          }`}
+                          className={`flex-1 min-w-[100px] py-3 text-[10px] font-bold rounded-xl transition-all whitespace-nowrap ${ allocationData.mode === mode.id ? 'bg-orange-600 text-white shadow-lg' : 'text-black hover:bg-slate-100 dark:hover:bg-slate-700' }`}
                         >
                           {mode.label}
                         </button>
@@ -1591,9 +1414,9 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                 {allocationData.mode === 'Single' && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="space-y-2 max-w-md">
-                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Search Student</label>
+                      <label className="text-[11px] font-bold text-black dark:text-white tracking-widest ml-1">Search Student</label>
                       <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-black dark:text-white" size={16} />
                         <input 
                           type="text"
                           placeholder="Search name or admission number..."
@@ -1612,16 +1435,12 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                         <button
                           key={student.id}
                           onClick={() => setAllocationData({ ...allocationData, studentIds: [student.id] })}
-                          className={`p-4 rounded-2xl border transition-all flex items-center gap-4 ${
-                            allocationData.studentIds.includes(student.id) 
-                              ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-500/20' 
-                              : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'
-                          }`}
+                          className={`p-4 rounded-2xl border transition-all flex items-center gap-4 ${ allocationData.studentIds.includes(student.id) ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-500/20' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700' }`}
                         >
                           <img src={`https://picsum.photos/seed/${student.id}/40`} className="w-10 h-10 rounded-full" />
                           <div className="text-left">
                             <p className="text-sm font-bold dark:text-white">{student.name}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase">{student.admissionNumber}</p>
+                            <p className="text-[10px] font-bold text-black dark:text-white">{student.admissionNumber}</p>
                           </div>
                           {allocationData.studentIds.includes(student.id) && <Check size={16} className="text-orange-600 ml-auto" />}
                         </button>
@@ -1635,11 +1454,11 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="font-bold dark:text-white">Drag & Drop Group Builder</h4>
-                        <p className="text-[11px] font-semibold text-slate-400">Organize students into a custom group for this allocation.</p>
+                        <p className="text-[11px] font-semibold text-black dark:text-white">Organize students into a custom group for this allocation.</p>
                       </div>
                       <div className="flex items-center gap-2">
-                         <span className="text-xs font-bold text-slate-500">Allocation for:</span>
-                         <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                         <span className="text-xs font-bold text-black dark:text-white">Allocation for:</span>
+                         <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-bold tracking-wider">
                            {allInventory.find(i => i.id === allocationData.itemId)?.name || 'Resource'}
                          </span>
                       </div>
@@ -1648,7 +1467,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[400px]">
                       {/* Left Panel: Available */}
                       <div className="bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700 rounded-3xl p-6 flex flex-col">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-4 tracking-widest flex items-center gap-2">
+                        <p className="text-[10px] font-bold text-black dark:text-white mb-4 tracking-widest flex items-center gap-2">
                           <Users size={12} /> Available Students
                         </p>
                         <div className="overflow-y-auto space-y-3 pr-2 custom-scrollbar">
@@ -1662,7 +1481,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                               <img src={`https://picsum.photos/seed/${student.id}/40`} className="w-8 h-8 rounded-full" />
                               <div className="flex-1">
                                 <p className="text-[12px] font-bold dark:text-white">{student.name}</p>
-                                <p className="text-[9px] font-bold text-slate-400">{student.admissionNumber}</p>
+                                <p className="text-[9px] font-bold text-black dark:text-white">{student.admissionNumber}</p>
                               </div>
                               <Plus size={14} className="text-slate-300" />
                             </motion.div>
@@ -1679,16 +1498,14 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                             setDraggedStudent(null);
                           }
                         }}
-                        className={`bg-white dark:bg-slate-900 border-2 border-dashed rounded-3xl p-6 flex flex-col transition-all ${
-                          allocationData.studentIds.length === 0 ? 'border-slate-200 dark:border-slate-800' : 'border-orange-200 dark:border-orange-800 shadow-inner'
-                        }`}
+                        className={`bg-white dark:bg-slate-900 border-2 border-dashed rounded-3xl p-6 flex flex-col transition-all ${ allocationData.studentIds.length === 0 ? 'border-slate-200 dark:border-slate-800' : 'border-orange-200 dark:border-orange-800 shadow-inner' }`}
                       >
                         <div className="flex items-center justify-between mb-4">
-                          <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest flex items-center gap-2">
+                          <p className="text-[10px] font-bold text-orange-600 tracking-widest flex items-center gap-2">
                              Group Members ({allocationData.studentIds.length})
                           </p>
                           {allocationData.studentIds.length > 0 && (
-                            <button onClick={() => setAllocationData({ ...allocationData, studentIds: [] })} className="text-[9px] font-bold text-slate-400 hover:text-rose-500 uppercase">Clear All</button>
+                            <button onClick={() => setAllocationData({ ...allocationData, studentIds: [] })} className="text-[9px] font-bold text-black dark:text-white hover:text-rose-500">Clear All</button>
                           )}
                         </div>
                         
@@ -1740,7 +1557,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                   <div className="p-12 text-center bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-[3rem] animate-in fade-in zoom-in duration-500">
                     <UserCheck size={48} className="mx-auto text-blue-600 mb-6" />
                     <h4 className="text-xl font-bold dark:text-white mb-2">Whole Class Allocation</h4>
-                    <p className="text-sm font-bold text-slate-500 max-w-sm mx-auto">
+                    <p className="text-sm font-bold text-black dark:text-white max-w-sm mx-auto">
                       This will automatically record this allocation for all {students.filter(s => s.grade === selectedClassroomGrade).length} students in the classroom.
                     </p>
                   </div>
@@ -1748,7 +1565,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
 
                 {/* Description Footer */}
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Additional Notes</label>
+                  <label className="text-[11px] font-bold text-black dark:text-white tracking-widest ml-1">Additional Notes</label>
                   <textarea 
                     value={allocationData.description}
                     onChange={(e) => setAllocationData({ ...allocationData, description: e.target.value })}
@@ -1763,7 +1580,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
               <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20 backdrop-blur-sm rounded-b-[3rem]">
                 <button 
                   onClick={() => setShowAllocationModal(false)}
-                  className="px-10 py-5 text-[11px] font-bold text-slate-500 uppercase hover:text-slate-800 dark:hover:text-white transition-colors"
+                  className="px-10 py-5 text-[11px] font-bold text-black dark:text-white hover:text-black dark:hover:text-white transition-colors"
                 >
                   Discard Changes
                 </button>
@@ -1775,11 +1592,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
                     }
                     handleSaveAllocation();
                   }}
-                  className={`px-12 py-5 rounded-[1.5rem] text-[11px] font-bold uppercase tracking-wider shadow-xl transition-all active:scale-95 ${
-                    (currentUserRole !== 'ADMIN' && enteredClassCode !== teacherData?.classroomAccessCode) ? 'bg-slate-400 cursor-not-allowed opacity-50' :
-                    allocationType === 'Material' ? 'bg-blue-600 shadow-blue-200' : 
-                    allocationType === 'Fund' ? 'bg-green-600 shadow-green-200' : 'bg-purple-600 shadow-purple-200'
-                  } text-white`}
+                  className={`px-12 py-5 rounded-[1.5rem] text-[11px] font-bold tracking-wider shadow-xl transition-all active:scale-95 ${ (currentUserRole !== 'ADMIN' && enteredClassCode !== teacherData?.classroomAccessCode) ? 'bg-slate-400 cursor-not-allowed opacity-50' : allocationType === 'Material' ? 'bg-blue-600 shadow-blue-200' : allocationType === 'Fund' ? 'bg-green-600 shadow-green-200' : 'bg-purple-600 shadow-purple-200' } text-white`}
                 >
                    Complete Allocation
                 </button>
@@ -1788,50 +1601,343 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({ setActiveTab, initialTa
           </div>
         )}
       </AnimatePresence>
-      {/* ===== INVOICE MODAL ===== */}
+      {/* ===== INVOICE MODAL — Premium View ===== */}
       {showInvoice && invoiceStudent && (
-        <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur z-10">
-              <div>
-                <h3 className="font-bold text-slate-900 dark:text-white text-lg">Fee Invoice</h3>
-                <p className="text-xs text-slate-500">{invoiceStudent.name} • {invoiceStudent.admissionNumber}</p>
+        <div className="fixed inset-0 z-[150] bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl my-8 overflow-hidden border border-slate-100 animate-in zoom-in duration-300">
+
+            {/* ── Modal Action Bar (not printed) ── */}
+            <div className="print:hidden flex items-center justify-between px-6 py-4 bg-slate-950 rounded-t-[2rem]">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-orange-500 flex items-center justify-center">
+                  <Receipt size={16} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white leading-none">Fee Invoice</p>
+                  <p className="text-[10px] font-bold text-slate-400 mt-0.5">{invoiceStudent.name} · {invoiceStudent.admissionNumber}</p>
+                </div>
               </div>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleInvoicePrint()}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-orange-600 text-white rounded-xl text-sm font-bold hover:bg-orange-700 transition-all shadow-lg shadow-orange-500/25"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-orange-600 text-white rounded-xl text-xs font-black hover:bg-orange-700 transition-all shadow-lg shadow-orange-500/30 active:scale-95"
                 >
-                  <Printer size={16} /> Print Invoice
+                  <Printer size={14} /> Print / Export
                 </button>
                 <button
                   onClick={() => setShowInvoice(false)}
-                  className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                  className="p-2.5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all"
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </div>
             </div>
-            
-            {/* Preview */}
-            <InvoiceReceipt
-              ref={invoiceRef}
-              type="invoice"
-              student={invoiceStudent}
-              schoolName={invoiceSchoolName}
-              schoolLogo={invoiceSchoolLogo}
-              schoolPhone=""
-              termLabel="Current Term Analysis"
-              feeStructures={invoiceFeeStructures.map(f => ({ category: f.category, amount: f.amount, grade: f.grade }))}
-              allPayments={invoicePayments.map(p => ({ amount: p.amount, date: p.date, method: p.method, reference: p.code }))}
-            />
+
+            {/* ── Printable Invoice Body ── */}
+            <div ref={invoiceRef} className="p-8 bg-white text-black dark:text-white font-sans" style={{ fontFamily: 'Arial, sans-serif' }}>
+
+              {/* Header */}
+              <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-orange-500">
+                <div className="flex items-center gap-3">
+                  {invoiceSchoolLogo ? (
+                    <img src={invoiceSchoolLogo} alt="School Logo" className="w-14 h-14 object-contain rounded-xl border border-slate-100" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl bg-orange-600 flex items-center justify-center text-white font-black text-2xl shadow-md">
+                      {invoiceSchoolName.charAt(0)}
+                    </div>
+                  )}
+                  <div>
+                    <h1 className="text-lg font-black text-black dark:text-white tracking-tight leading-tight">{invoiceSchoolName}</h1>
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Official Fee Statement</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="inline-block px-4 py-1.5 bg-orange-100 text-orange-700 text-[10px] font-black rounded-lg uppercase tracking-widest mb-2">
+                    📄 Fee Invoice
+                  </div>
+                  <p className="text-[11px] font-mono font-bold text-slate-500 block">
+                    INV-{invoiceStudent.admissionNumber?.toUpperCase?.() || Date.now().toString().slice(-6)}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Student Info */}
+              <div className="grid grid-cols-2 gap-4 mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Learner Name</p>
+                  <p className="font-black text-black dark:text-white text-sm leading-tight">{invoiceStudent.name}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Admission No.</p>
+                  <p className="font-black text-black dark:text-white font-mono text-sm">{invoiceStudent.admissionNumber}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Grade / Stream</p>
+                  <p className="font-bold text-black dark:text-white text-sm">{invoiceStudent.grade} {invoiceStudent.stream && `• ${invoiceStudent.stream}`}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Category</p>
+                  <span className="inline-block px-3 py-1 bg-orange-100 text-orange-700 text-[10px] font-black rounded-full capitalize">
+                    {invoiceStudent.boardingType || 'Day Scholar'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Fee Breakdown Table */}
+              {invoiceFeeStructures.length > 0 && (
+                <div className="mb-6">
+                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-3">Fee Breakdown</p>
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="text-left p-3 rounded-tl-xl font-black text-black dark:text-white text-[10px] uppercase tracking-wider">Description</th>
+                        <th className="text-right p-3 rounded-tr-xl font-black text-black dark:text-white text-[10px] uppercase tracking-wider">Amount (KES)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoiceFeeStructures
+                        .filter(f => !f.grade || f.grade === invoiceStudent.grade || f.grade === 'All')
+                        .map((fee, i) => (
+                        <tr key={i} className="border-b border-slate-100">
+                          <td className="p-3 text-black dark:text-white font-medium">{fee.category}</td>
+                          <td className="p-3 text-right font-mono font-bold text-black dark:text-white">
+                            {(Number(fee.amount) || 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-orange-50">
+                        <td className="p-3 font-black text-orange-700 rounded-bl-xl">Total Fees</td>
+                        <td className="p-3 text-right font-black text-orange-700 font-mono rounded-br-xl">
+                          KES {invoiceFeeStructures
+                            .filter(f => !f.grade || f.grade === invoiceStudent.grade || f.grade === 'All')
+                            .reduce((s, f) => s + (Number(f.amount) || 0), 0)
+                            .toLocaleString()}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {/* Payment History */}
+              {invoicePayments.length > 0 && (
+                <div className="mb-6">
+                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-3">Payments Received</p>
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="text-left p-3 rounded-tl-xl font-black text-black dark:text-white text-[10px]">Date</th>
+                        <th className="text-left p-3 font-black text-black dark:text-white text-[10px]">Method</th>
+                        <th className="text-left p-3 font-black text-black dark:text-white text-[10px]">Reference</th>
+                        <th className="text-right p-3 rounded-tr-xl font-black text-black dark:text-white text-[10px]">Amount (KES)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoicePayments.map((p, i) => (
+                        <tr key={i} className="border-b border-slate-100">
+                          <td className="p-3 text-black dark:text-white text-[11px]">
+                            {new Date(p.date).toLocaleDateString('en-GB')}
+                          </td>
+                          <td className="p-3 text-black dark:text-white font-medium text-[11px]">{p.method}</td>
+                          <td className="p-3 text-black dark:text-white font-mono text-[10px]">{p.code || p.reference || '—'}</td>
+                          <td className="p-3 text-right font-mono font-bold text-green-700 text-[11px]">
+                            {(p.amount || 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-green-50">
+                        <td colSpan={3} className="p-3 font-black text-green-700 rounded-bl-xl">Total Paid</td>
+                        <td className="p-3 text-right font-black text-green-700 font-mono rounded-br-xl">
+                          KES {invoicePayments.reduce((s, p) => s + (p.amount || 0), 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+
+              {/* Balance Summary */}
+              {(() => {
+                const totalFees = invoiceFeeStructures
+                  .filter(f => !f.grade || f.grade === invoiceStudent.grade || f.grade === 'All')
+                  .reduce((s, f) => s + (Number(f.amount) || 0), 0);
+                const totalPaid = invoicePayments.reduce((s, p) => s + (p.amount || 0), 0);
+                const balance = invoiceStudent.balance ?? (totalFees - totalPaid);
+                const isCleared = balance <= 0;
+                return (
+                  <div className={`relative rounded-2xl p-6 border-2 mt-4 overflow-hidden ${isCleared ? 'border-green-200 bg-green-50' : 'border-rose-200 bg-rose-50'}`}>
+                    {isCleared && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span className="text-[80px] font-black text-green-200 opacity-30 rotate-[-20deg] select-none tracking-widest">PAID</span>
+                      </div>
+                    )}
+                    <div className="relative flex items-end justify-between">
+                      <div>
+                        <p className={`text-[9px] uppercase tracking-widest font-black mb-1 ${isCleared ? 'text-green-600' : 'text-rose-500'}`}>
+                          {isCleared ? 'Account Status' : 'Outstanding Balance'}
+                        </p>
+                        <p className={`text-3xl font-black tracking-tight ${isCleared ? 'text-green-600' : 'text-rose-600'}`}>
+                          {isCleared ? '✅ Fully Paid' : `KES ${Math.abs(balance).toLocaleString()} Owing`}
+                        </p>
+                      </div>
+                      {!isCleared && (
+                        <div className="text-right">
+                          <p className="text-[10px] font-black text-rose-500">Please clear balance</p>
+                          <p className="text-[9px] text-slate-500 mt-0.5">Payment due this term</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Footer */}
+              <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                  This is a computer-generated document · {invoiceSchoolName}
+                </p>
+              </div>
+
+            </div>{/* end printable body */}
           </div>
         </div>
       )}
 
+
+      {/* Student Detail Modal */}
+      {showStudentDetail && selectedStudentDetail && (
+        <StudentDetailModal 
+          student={selectedStudentDetail} 
+          onClose={() => setShowStudentDetail(false)} 
+        />
+      )}
+    </div>
+  );
+};
+
+const StudentDetailModal: React.FC<{ student: any; onClose: () => void }> = ({ student, onClose }) => {
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  });
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] shadow-2xl border border-white/20 dark:border-slate-800 flex flex-col relative animate-in zoom-in duration-500">
+        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <UserCircle size={28} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold dark:text-white">{student.name}</h3>
+              <p className="text-xs font-bold text-black dark:text-white tracking-wider uppercase">{student.admissionNumber}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => handlePrint()}
+              className="flex items-center gap-2 px-5 py-2.5 bg-orange-600 text-white rounded-xl text-xs font-bold hover:bg-orange-700 transition-all shadow-lg shadow-orange-500/20"
+            >
+              <Printer size={16} /> Generate PDF
+            </button>
+            <button 
+              onClick={onClose}
+              className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-slate-100 transition-all"
+            >
+              <X size={20} className="text-black dark:text-white" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-8 md:p-12 space-y-10" ref={printRef}>
+          {/* Printable Content */}
+          <div className="print:p-8">
+            <div className="hidden print:flex flex-col items-center mb-10 border-b pb-8">
+              <h1 className="text-2xl font-bold">STUDENT REGISTRATION DETAILS</h1>
+              <p className="text-sm font-medium">BrightSoma eSchool Management Platform</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+              <div className="space-y-6">
+                <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-[0.2em] border-b pb-2 border-slate-100">Core Information</h4>
+                <div className="space-y-4">
+                  {[
+                    { label: 'Full Name', value: student.name },
+                    { label: 'Admission No', value: student.admissionNumber },
+                    { label: 'Grade', value: student.grade },
+                    { label: 'Stream', value: student.stream || 'N/A' },
+                    { label: 'Boarding Type', value: student.boardingType },
+                    { label: 'Status', value: student.status },
+                    { label: 'Date of Admission', value: student.dateOfAdmission }
+                  ].map(item => (
+                    <div key={item.label} className="flex justify-between items-center py-1">
+                      <span className="text-[11px] font-bold text-black dark:text-white uppercase">{item.label}</span>
+                      <span className="text-sm font-semibold text-black dark:text-slate-300">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-[0.2em] border-b pb-2 border-slate-100">Parental Details</h4>
+                <div className="space-y-4">
+                   {[
+                    { label: 'Father Name', value: student.parentInfo.fatherName || 'N/A' },
+                    { label: 'Father Phone', value: student.parentInfo.fatherPhone || 'N/A' },
+                    { label: 'Mother Name', value: student.parentInfo.motherName || 'N/A' },
+                    { label: 'Mother Phone', value: student.parentInfo.motherPhone || 'N/A' },
+                    { label: 'Emergency Contact', value: student.parentInfo.emergencyContact || 'N/A' }
+                  ].map(item => (
+                    <div key={item.label} className="flex justify-between items-center py-1">
+                      <span className="text-[11px] font-bold text-black dark:text-white uppercase">{item.label}</span>
+                      <span className="text-sm font-semibold text-black dark:text-slate-300">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-6 md:col-span-2">
+                <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-[0.2em] border-b pb-2 border-slate-100">Medical & Special Needs</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   {[
+                    { label: 'Blood Group', value: student.medicalInfo.bloodGroup || 'Unknown' },
+                    { label: 'Allergies', value: student.medicalInfo.allergies || 'None recorded' },
+                    { label: 'Conditions', value: student.medicalInfo.conditions || 'None recorded' }
+                  ].map(item => (
+                    <div key={item.label} className="space-y-1">
+                      <p className="text-[10px] font-bold text-black dark:text-white uppercase">{item.label}</p>
+                      <p className="text-sm font-semibold text-black dark:text-slate-300">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-12 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+               <p className="text-[10px] font-bold text-black dark:text-white mb-1">Administrative Remarks</p>
+               <p className="text-sm font-medium text-black dark:text-slate-400 italic">
+                 {student.adminNotes || "No additional administrative notes recorded for this learner."}
+               </p>
+            </div>
+
+            <div className="hidden print:block mt-20 pt-8 border-t text-center">
+              <p className="text-[10px] font-bold">BrightSoma Certified Learner Record • Generated on {new Date().toLocaleDateString()}</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
 export default StudentsModule;
+
 
