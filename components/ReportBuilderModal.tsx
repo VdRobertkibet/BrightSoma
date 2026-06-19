@@ -416,8 +416,8 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
       )}
 
       {/* ── Top Bar ─────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-50">
-        <div className="flex items-center gap-4">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 flex items-center shadow-sm sticky top-0 z-50 overflow-x-auto whitespace-nowrap hide-scrollbar gap-4 sm:gap-6">
+        <div className="flex items-center gap-4 flex-shrink-0">
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
             <X size={20} className="text-slate-500" />
           </button>
@@ -427,7 +427,7 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 ml-auto flex-shrink-0">
           {/* Theme Picker */}
           <div className="relative">
             <button onClick={() => setIsThemePickerOpen(!isThemePickerOpen)} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all">
@@ -542,8 +542,8 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
               )}
             </div>
 
-            <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-              <table className="w-full border-collapse">
+            <div className="border border-slate-100 rounded-2xl shadow-sm overflow-x-auto hide-scrollbar">
+              <table className="w-full border-collapse min-w-[700px]">
                 <thead>
                   <tr className="bg-slate-900 text-white text-[9px] font-black tracking-widest">
                     <th className="p-2 pl-4 text-left">No.</th>
@@ -586,39 +586,19 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
                           );
                         })}
 
-                        {/* % column — custom downward picker */}
+                        {/* % column — using styled native select so it is never clipped */}
                         <td className="p-1 text-center" onClick={e => e.stopPropagation()}>
                           {isEditing ? (
-                            <div className="relative" style={{ zIndex: 200 }}>
-                              <button
-                                type="button"
-                                onClick={() => setOpenDropdown(openDropdown === `pct-${la}` ? null : `pct-${la}`)}
-                                className="text-[9px] font-bold w-14 bg-white border border-slate-300 rounded-lg px-1 py-1 text-slate-700 text-center hover:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-300 transition-colors"
-                              >
-                                {pct != null ? `${pct}%` : '—'}
-                              </button>
-                              {openDropdown === `pct-${la}` && (
-                                <div
-                                  className="absolute left-0 top-full mt-1 w-20 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-y-auto"
-                                  style={{ maxHeight: 200, zIndex: 9999 }}
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  <div
-                                    className="px-2 py-1.5 text-[9px] font-bold text-slate-400 hover:bg-orange-50 hover:text-orange-600 cursor-pointer"
-                                    onClick={() => { handleFieldChange(la, 'percentage', null); setOpenDropdown(null); }}
-                                  >—</div>
-                                  {Array.from({ length: 100 }, (_, k) => k + 1).map(n => (
-                                    <div
-                                      key={n}
-                                      onClick={() => { handleFieldChange(la, 'percentage', n); setOpenDropdown(null); }}
-                                      className={`px-2 py-1.5 text-[9px] font-bold cursor-pointer transition-colors ${
-                                        pct === n ? 'bg-orange-500 text-white' : 'text-slate-700 hover:bg-orange-50 hover:text-orange-600'
-                                      }`}
-                                    >{n}%</div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                            <select
+                              value={pct ?? ''}
+                              onChange={e => handleFieldChange(la, 'percentage', e.target.value ? Number(e.target.value) : null)}
+                              className="text-[9px] font-bold w-14 bg-white border border-slate-300 rounded-lg px-1 py-1 outline-none text-slate-700 text-center hover:border-orange-400 focus:ring-1 focus:ring-orange-300 transition-colors cursor-pointer appearance-none"
+                            >
+                              <option value="">—</option>
+                              {Array.from({ length: 100 }, (_, i) => i + 1).map(n => (
+                                <option key={n} value={n}>{n}%</option>
+                              ))}
+                            </select>
                           ) : (
                             <span className={`text-[10px] font-black ${pct != null ? 'text-slate-700' : 'text-slate-300'}`}>
                               {pct != null ? `${pct}%` : '—'}
@@ -626,39 +606,19 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
                           )}
                         </td>
 
-                        {/* PNT column — custom downward picker */}
+                        {/* PNT column — using styled native select, 1 to 8 */}
                         <td className="p-1 text-center" onClick={e => e.stopPropagation()}>
                           {isEditing ? (
-                            <div className="relative" style={{ zIndex: 200 }}>
-                              <button
-                                type="button"
-                                onClick={() => setOpenDropdown(openDropdown === `pnt-${la}` ? null : `pnt-${la}`)}
-                                className="text-[9px] font-bold w-12 bg-white border border-slate-300 rounded-lg px-1 py-1 text-slate-700 text-center hover:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-300 transition-colors"
-                              >
-                                {pnt != null ? pnt : '—'}
-                              </button>
-                              {openDropdown === `pnt-${la}` && (
-                                <div
-                                  className="absolute left-0 top-full mt-1 w-16 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-y-auto"
-                                  style={{ maxHeight: 200, zIndex: 9999 }}
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  <div
-                                    className="px-2 py-1.5 text-[9px] font-bold text-slate-400 hover:bg-orange-50 hover:text-orange-600 cursor-pointer"
-                                    onClick={() => { handleFieldChange(la, 'pnt', null); setOpenDropdown(null); }}
-                                  >—</div>
-                                  {Array.from({ length: 10 }, (_, k) => k + 1).map(n => (
-                                    <div
-                                      key={n}
-                                      onClick={() => { handleFieldChange(la, 'pnt', n); setOpenDropdown(null); }}
-                                      className={`px-2 py-1.5 text-[9px] font-bold cursor-pointer transition-colors ${
-                                        pnt === n ? 'bg-orange-500 text-white' : 'text-slate-700 hover:bg-orange-50 hover:text-orange-600'
-                                      }`}
-                                    >{n}</div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                            <select
+                              value={pnt ?? ''}
+                              onChange={e => handleFieldChange(la, 'pnt', e.target.value ? Number(e.target.value) : null)}
+                              className="text-[9px] font-bold w-12 bg-white border border-slate-300 rounded-lg px-1 py-1 outline-none text-slate-700 text-center hover:border-orange-400 focus:ring-1 focus:ring-orange-300 transition-colors cursor-pointer appearance-none"
+                            >
+                              <option value="">—</option>
+                              {Array.from({ length: 8 }, (_, i) => i + 1).map(n => (
+                                <option key={n} value={n}>{n}</option>
+                              ))}
+                            </select>
                           ) : (
                             <span className={`text-[10px] font-black ${pnt != null ? 'text-slate-700' : 'text-slate-300'}`}>
                               {pnt != null ? pnt : '—'}

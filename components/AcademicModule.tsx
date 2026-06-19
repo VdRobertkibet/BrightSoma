@@ -209,35 +209,31 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
   return (
     <div className="space-y-10 animate-in fade-in duration-700 font-sans">
       {/* Consolidated Academic Toolbar */}
-      <div className="flex flex-wrap items-center gap-4 animate-in slide-in-from-top-4 duration-500">
+      <div className="flex items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500 bg-slate-900 dark:bg-slate-950 p-4 rounded-3xl shadow-xl shadow-slate-900/10">
         {/* Stats Section */}
-        <div className="flex items-center gap-2">
-          <div className="px-5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center gap-3">
-            <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center text-orange-600">
-              <TrendingUp size={14} />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-tight">Active Grades</p>
-              <p className="text-sm font-black text-slate-900 dark:text-white leading-tight">{activeGradesList.length || CBC_GRADES.length}</p>
-            </div>
+        <div className="flex items-center gap-3 text-white">
+          <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center">
+            <TrendingUp size={16} className="text-orange-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 leading-tight uppercase tracking-widest">Active Grades</p>
+            <p className="text-base font-black leading-tight">{activeGradesList.length || CBC_GRADES.length}</p>
           </div>
         </div>
 
         {/* Grade Selector (Only show for Assessments & Reports) */}
         {(activeTab === 'assessments' || activeTab === 'reports') && (
-          <div className="flex items-center gap-3 ml-auto">
-            <div className="flex items-center gap-3 px-5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
-              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tracking-widest">Select Model:</span>
-              <select
-                value={selectedGrade}
-                onChange={(e) => setSelectedGrade(e.target.value as CBCGrade)}
-                className="bg-transparent text-sm font-bold text-slate-900 dark:text-white outline-none cursor-pointer"
-              >
-                {(activeGradesList.length > 0 ? activeGradesList : CBC_GRADES).map(g => (
-                  <option key={g} value={g} className="text-black dark:text-white">{g}</option>
-                ))}
-              </select>
-            </div>
+          <div className="flex items-center gap-3 bg-white/10 px-4 py-2.5 rounded-2xl">
+            <span className="hidden sm:inline text-[10px] font-bold text-slate-300 tracking-widest uppercase">Select Model:</span>
+            <select
+              value={selectedGrade}
+              onChange={(e) => setSelectedGrade(e.target.value as CBCGrade)}
+              className="bg-transparent text-sm font-bold text-white outline-none cursor-pointer border-none focus:ring-0 [&>option]:text-slate-900"
+            >
+              {(activeGradesList.length > 0 ? activeGradesList : CBC_GRADES).map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
           </div>
         )}
       </div>
@@ -307,8 +303,8 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {students.filter(s => s.grade === selectedGrade).map((student, si) => (
-                  <tr key={student.id} className={si % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/50 dark:bg-slate-800/30'}>
-                    <td className="p-3 sticky left-0 bg-inherit z-10 min-w-[140px]">
+                  <tr key={student.id} className={si % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'}>
+                    <td className="p-3 sticky left-0 bg-inherit z-10 min-w-[140px] shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
                       <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{student.name}</p>
                       <p className="text-[9px] text-slate-400">{student.admissionNumber}</p>
                     </td>
