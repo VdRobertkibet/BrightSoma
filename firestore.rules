@@ -24,7 +24,6 @@ service cloud.firestore {
 
     // Get the schoolId for the currently logged-in staff member
     function getStaffSchoolId() {
-      // Allow reading staff document if we are trying to create it
       return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.schoolId;
     }
     
@@ -58,40 +57,55 @@ service cloud.firestore {
 
     // ─── Schools (Tenants) ────────────────────────────────────────────────
     match /schools/{schoolId} {
-      // Anyone authenticated can read the institutional profile (required for sign-in phase)
       allow read: if isAuthenticated();
-      // Only the exact UID owner can create
       allow create: if isAuthenticated() && request.auth.uid == schoolId;
-      // Admins and authorized staff can update
       allow update: if isPlatformAdmin() || request.auth.uid == schoolId || belongsToSchool(schoolId);
       allow delete: if isPlatformAdmin() || request.auth.uid == schoolId;
     }
 
     // ─── Users (Roles / Platform Admin records) ───────────────────────────
     match /users/{userId} {
-      // Allow any authenticated user to check their own record or existence
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.auth.uid == userId;
       allow update: if isPlatformAdmin() || request.auth.uid == userId;
       allow delete: if isPlatformAdmin();
     }
 
+    // ─── Profiles (Tier 1.5 Role Resolution) ──────────────────────────────
+    match /profiles/{profileId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == profileId;
+      allow update: if isPlatformAdmin() || request.auth.uid == profileId;
+      allow delete: if isPlatformAdmin();
+    }
+
+    // ─── Parents (Tier 4 Role Resolution) ─────────────────────────────────
+    match /parents/{parentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isPlatformAdmin() || request.auth.uid == parentId;
+      allow delete: if isPlatformAdmin();
+    }
+
+
     // ─── Staff & Access Codes ─────────────────────────────────────────────
     match /staff/{staffId} {
-      // Any authenticated user can read — needed for identity verification during sign-in
+      // Very permissive read for auth resolution
       allow read: if isAuthenticated();
-      // Admins can create staff docs; authenticated users can also create their own
-      allow create: if isPlatformAdmin() || isSchoolAdmin() || (isAuthenticated() && request.resource.data.schoolId != null);
-      // Admins can update any; staff members can update ONLY their own document
-      allow update: if isPlatformAdmin() || isSchoolAdmin() || (isAuthenticated() && request.auth.uid == staffId);
-      allow delete: if isPlatformAdmin() || isSchoolAdmin();
+      // Allow creation during registration/migration
+      allow create: if isAuthenticated();
+      // Allow update/delete if owner (case-insensitive email check)
+      allow update, delete: if isAuthenticated() && (
+        isPlatformAdmin() || 
+        isSchoolAdmin() || 
+        request.auth.uid == staffId ||
+        (resource != null && resource.data.email.toLower() == request.auth.token.email.toLower())
+      );
     }
     
     match /access_codes/{docId} {
-      // Anyone belonging to the school can see codes (or anyone trying to redeem one)
       allow read: if isAuthenticated();
-      // Only Admins can generate or delete codes
-      allow create: if isAuthenticated() && (isPlatformAdmin() || isSchoolAdmin() || belongsToSchool(request.resource.data.schoolId));
+      allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && (isPlatformAdmin() || isSchoolAdmin() || belongsToSchool(resource.data.schoolId));
     }
 
@@ -146,6 +160,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
       allow create: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(request.resource.data.schoolId));
       allow update, delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
+    }
+
+    // CBC Report Remarks (teacher + HT remarks saved per student per term)
+    match /report_remarks/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated() && (isPlatformAdmin() || isSchoolAdmin());
     }
 
     // Boarding
@@ -232,7 +253,10 @@ service cloud.firestore {
     match /payments/{docId} {
       allow read: if isAuthenticated() && (isPlatformAdmin() || (resource == null) || schoolDataRead(resource.data.schoolId));
       allow create: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(request.resource.data.schoolId));
-      allow update, delete: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(resource.data.schoolId));
+      // Allow school admins and any belonging staff to delete payments (e.g. when deleting a student)
+      // Full finance restriction only applies to create/update
+      allow update: if isAuthenticated() && (isPlatformAdmin() || canWriteFinance(resource.data.schoolId));
+      allow delete: if isAuthenticated() && (isPlatformAdmin() || schoolDataWrite(resource.data.schoolId));
     }
 
     // Deny everything else that wasn't explicitly matched
