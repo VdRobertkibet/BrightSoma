@@ -45,6 +45,17 @@ interface AcademicModuleProps {
   onTabChange?: (tab: 'hierarchy' | 'assessments' | 'reports') => void;
 }
 
+const toTitleCase = (str: string): string => {
+  if (!str) return '';
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTab, onTabChange: propOnTabChange }) => {
   const [localActiveTab, setLocalActiveTab] = useState<'hierarchy' | 'assessments' | 'reports'>('hierarchy');
   const activeTab = propActiveTab || localActiveTab;
@@ -88,7 +99,10 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
       }
 
       unsubs.push(onSnapshot(query(collection(db, 'students'), where('schoolId', '==', schoolId)), snap => {
-        setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
+        setStudents(snap.docs.map(d => {
+          const s = d.data() as Student;
+          return { ...s, id: d.id, name: toTitleCase(s.name) };
+        }));
       }));
 
       unsubs.push(onSnapshot(query(collection(db, 'assessments'), where('schoolId', '==', schoolId)), snap => {

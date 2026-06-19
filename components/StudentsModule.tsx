@@ -62,6 +62,17 @@ interface StudentsModuleProps {
   isMockAuth?: boolean;
 }
 
+const toTitleCase = (str: string): string => {
+  if (!str) return '';
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 const StudentsModule: React.FC<StudentsModuleProps> = ({ 
   setActiveTab, 
   setEditingStudentId, 
@@ -131,7 +142,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
     if (isMockAuth) {
       const loadMockData = async () => {
         const { MOCK_STUDENTS } = await import('../demoData');
-        setStudents(MOCK_STUDENTS);
+        setStudents(MOCK_STUDENTS.map(s => ({ ...s, name: toTitleCase(s.name) })));
         setIsLoading(false);
         setCurrentUserRole(role);
       };
@@ -163,7 +174,8 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
       const unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
         const studentData: Student[] = [];
         snapshot.forEach((doc) => {
-          studentData.push({ id: doc.id, ...doc.data() } as Student);
+          const s = doc.data() as Student;
+          studentData.push({ ...s, id: doc.id, name: toTitleCase(s.name) });
         });
         setStudents(studentData);
         setIsLoading(false);
