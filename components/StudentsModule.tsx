@@ -822,57 +822,57 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
                  </button>
                )}
             </div>
-            <div className="overflow-x-auto flex-1">
+            <div className="overflow-x-auto flex-1 max-h-[60vh] border border-slate-200 dark:border-slate-700 rounded-xl relative hide-scrollbar">
               <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400">
-                    <th className="p-4 pl-0 text-slate-700 dark:text-slate-200">Learner Name</th>
-                    <th className="p-4 text-slate-700 dark:text-slate-200">Admission No.</th>
-                    <th className="p-4 text-slate-700 dark:text-slate-200">Grade / Stream</th>
-                    <th className="p-4 text-slate-700 dark:text-slate-200">Boarding</th>
-                    <th className="p-4 text-right text-slate-700 dark:text-slate-200">Fee Balance</th>
-                    <th className="p-4 text-right pr-0 text-slate-700 dark:text-slate-200">Action</th>
+                <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10 shadow-sm">
+                  <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-bold tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    <th className="p-3 pl-4 text-slate-700 dark:text-slate-200">Learner Name</th>
+                    <th className="p-3 text-slate-700 dark:text-slate-200">Admission No.</th>
+                    <th className="p-3 text-slate-700 dark:text-slate-200">Grade / Stream</th>
+                    <th className="p-3 text-slate-700 dark:text-slate-200">Boarding</th>
+                    <th className="p-3 text-right text-slate-700 dark:text-slate-200">Fee Balance</th>
+                    <th className="p-3 text-right pr-4 text-slate-700 dark:text-slate-200">Action</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {filteredStudents.map((student) => (
-                    <tr key={student.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group cursor-default">
-                      <td className="p-4 pl-0">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredStudents.map((student, si) => (
+                    <tr key={student.id} className={`${si % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'} transition-colors cursor-default`}>
+                      <td className="p-3 pl-4">
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <img src={`https://picsum.photos/seed/${student.id}/64`} className="w-10 h-10 rounded-[1rem] object-cover shadow-sm group-hover:scale-105 transition-transform border border-slate-200 dark:border-slate-700" alt={student.name} referrerPolicy="no-referrer" />
-                            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-orange-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
+                            <img src={`https://picsum.photos/seed/${student.id}/64`} className="w-8 h-8 rounded-lg object-cover shadow-sm border border-slate-200 dark:border-slate-700" alt={student.name} referrerPolicy="no-referrer" />
+                            <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-orange-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{student.name}</p>
-                            <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 cursor-pointer hover:text-orange-600 dark:hover:text-orange-400" onClick={() => handleOpenEdit(student)}>View Profile</p>
+                            <p className="font-medium text-slate-900 dark:text-slate-100 text-sm whitespace-nowrap">{student.name}</p>
+                            <p className="text-[10px] font-semibold text-slate-400 cursor-pointer hover:text-orange-600 dark:hover:text-orange-400" onClick={() => handleOpenEdit(student)}>View Profile</p>
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-sm font-semibold text-slate-800 dark:text-slate-300">
+                      <td className="p-3 text-xs font-medium text-slate-800 dark:text-slate-300">
                         {student.admissionNumber}
                       </td>
-                      <td className="p-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl w-fit">
-                          <GraduationCap size={14} className="text-orange-500" />
+                      <td className="p-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg w-fit">
+                          <GraduationCap size={12} className="text-orange-500" />
                           <div className="flex flex-col leading-none">
-                            <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 tracking-tight">
+                            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 tracking-tight">
                               {student.grade}
                             </span>
-                            <span className="text-[9px] font-bold text-slate-400 tracking-widest">{student.stream}</span>
+                            <span className="text-[8px] font-semibold text-slate-400 tracking-widest">{student.stream}</span>
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-orange-50/50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30 rounded-xl w-fit">
-                          <Home size={14} className="text-orange-500" />
-                          <span className="text-[10px] font-black text-orange-700 dark:text-orange-400 tracking-wide">
+                      <td className="p-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-orange-50/50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30 rounded-lg w-fit">
+                          <Home size={12} className="text-orange-500" />
+                          <span className="text-[9px] font-bold text-orange-700 dark:text-orange-400 tracking-wide">
                             {student.boardingType}
                           </span>
                         </div>
                       </td>
-                      <td className="p-4 text-right whitespace-nowrap">
-                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${
+                      <td className="p-3 text-right whitespace-nowrap">
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${
                           student.hasFeeRecord === false 
                             ? 'bg-amber-50 border-amber-100 text-amber-600 dark:bg-amber-900/20 dark:border-amber-900/30 dark:text-amber-400' 
                             : student.balance < 0 
@@ -881,8 +881,8 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
                             ? 'bg-orange-50 border-orange-100 text-orange-600 dark:bg-orange-900/20 dark:border-orange-900/30 dark:text-orange-400' 
                             : 'bg-green-50 border-green-100 text-green-600 dark:bg-green-900/20 dark:border-green-900/30 dark:text-green-400'
                         }`}>
-                          {student.hasFeeRecord === false ? <AlertCircle size={14} /> : <Banknote size={14} />}
-                          <span className="text-[11px] font-black tracking-tight">
+                          {student.hasFeeRecord === false ? <AlertCircle size={12} /> : <Banknote size={12} />}
+                          <span className="text-[10px] font-bold tracking-tight">
                             {student.hasFeeRecord === false 
                               ? 'Need Action' 
                               : student.balance !== 0 
@@ -891,31 +891,24 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
                           </span>
                         </div>
                       </td>
-                      <td className="p-4 text-right pr-0">
-                        <div className="flex justify-end gap-2">
+                      <td className="p-3 text-right pr-4">
+                        <div className="flex justify-end gap-1.5">
                           <button 
                             onClick={() => handleOpenInvoice(student)}
-                            className="p-2 text-black dark:text-white hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/10 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold"
+                            className="p-1.5 text-slate-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/10 rounded-lg transition-all"
                             title="Generate Invoice"
                           >
-                            <Receipt size={14} /> Invoice
+                            <Receipt size={14} />
                           </button>
                           <button 
                             onClick={() => setActiveTab('academics')}
-                            className="p-2 text-black dark:text-white hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold"
+                            className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-lg transition-all"
                             title="View Report"
                           >
-                            <FileText size={14} /> Report
+                            <FileText size={14} />
                           </button>
-                          <button 
-                            onClick={() => handleOpenDetail(student)}
-                            className="p-2 text-black dark:text-white hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-xl transition-all flex items-center gap-2 text-[10px] font-bold"
-                            title="View Details"
-                          >
-                            <Eye size={14} /> View
-                          </button>
-                          <button onClick={() => handleOpenEdit(student)} className="p-2 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-xl hover:bg-orange-100 transition-all"><Pencil size={14} /></button>
-                          <button onClick={() => setDeleteModal({isOpen: true, studentId: student.id, reason: '', confirmText: ''})} className="p-2 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl hover:bg-rose-100 transition-all"><Trash2 size={14} /></button>
+                          <button onClick={() => handleOpenEdit(student)} className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-lg transition-all"><Pencil size={14} /></button>
+                          <button onClick={() => setDeleteModal({isOpen: true, studentId: student.id, reason: '', confirmText: ''})} className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-lg transition-all"><Trash2 size={14} /></button>
                         </div>
                       </td>
                     </tr>
@@ -1106,43 +1099,43 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
                   </div>
                </div>
                
-               <div className="overflow-x-auto">
+               <div className="overflow-x-auto max-h-[60vh] border border-slate-200 dark:border-slate-700 rounded-xl hide-scrollbar relative">
                  <table className="w-full text-left border-collapse">
-                   <thead>
-                     <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-bold text-black dark:text-white tracking-wider">
-                       <th className="p-4 pl-0">Learner Name</th>
-                       <th className="p-4">Stream</th>
-                       <th className="p-4">TextBooks Assigned</th>
-                       <th className="p-4 text-right">Fund Contrib</th>
+                   <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10 shadow-sm">
+                     <tr className="border-b border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-400 tracking-wider whitespace-nowrap">
+                       <th className="p-3 pl-4">Learner Name</th>
+                       <th className="p-3">Stream</th>
+                       <th className="p-3">TextBooks Assigned</th>
+                       <th className="p-3 text-right pr-4">Fund Contrib</th>
                      </tr>
                    </thead>
-                   <tbody>
-                     {students.filter(s => s.grade === selectedClassroomGrade).map((student) => (
-                       <tr key={student.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
-                          <td className="p-4 pl-0">
+                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                     {students.filter(s => s.grade === selectedClassroomGrade).map((student, si) => (
+                       <tr key={student.id} className={`${si % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'} transition-colors`}>
+                          <td className="p-3 pl-4 whitespace-nowrap">
                             <div className="flex items-center gap-3">
-                              <img src={`https://picsum.photos/seed/${student.id}/40`} className="w-8 h-8 rounded-full object-cover" alt={student.name} referrerPolicy="no-referrer" />
-                              <span className="font-bold text-black dark:text-white text-sm">{student.name}</span>
+                              <img src={`https://picsum.photos/seed/${student.id}/40`} className="w-6 h-6 rounded-md object-cover" alt={student.name} referrerPolicy="no-referrer" />
+                              <span className="font-medium text-slate-900 dark:text-slate-100 text-xs">{student.name}</span>
                             </div>
                           </td>
-                          <td className="p-4 font-semibold text-black dark:text-slate-300 text-sm">{student.stream || 'N/A'}</td>
-                          <td className="p-4">
+                          <td className="p-3 font-medium text-slate-700 dark:text-slate-300 text-xs">{student.stream || '—'}</td>
+                          <td className="p-3">
                              <div className="flex items-center gap-2 group/remark">
                                 <input 
                                   type="text" 
                                   defaultValue={(student as any).classroomRemark || ''} 
                                   onBlur={(e) => handleUpdateStudentRemark(student.id, e.target.value)}
                                   placeholder="Add remark..." 
-                                  className="bg-transparent border-b border-dashed border-slate-200 dark:border-slate-700 text-[11px] font-medium text-black dark:text-white focus:text-black dark:focus:text-white focus:border-orange-500 outline-none w-48 transition-all"
+                                  className="bg-transparent border-b border-dashed border-slate-300 dark:border-slate-600 text-[10px] font-medium text-slate-700 dark:text-slate-300 focus:border-orange-500 outline-none w-48 transition-all py-1"
                                 />
                              </div>
                           </td>
-                          <td className="p-4 text-right font-bold text-black dark:text-slate-200 text-sm">KES {(student as any).balance > 0 ? '0' : '1,500'}</td>
+                          <td className="p-3 text-right font-semibold text-slate-800 dark:text-slate-200 text-xs pr-4">KES {(student as any).balance > 0 ? '0' : '1,500'}</td>
                        </tr>
                      ))}
                      {students.filter(s => s.grade === selectedClassroomGrade).length === 0 && (
                         <tr>
-                          <td colSpan={4} className="p-8 text-center text-sm font-medium text-black dark:text-white">No learners assigned to this classroom yet.</td>
+                          <td colSpan={4} className="p-8 text-center text-sm font-medium text-slate-500">No learners assigned to this classroom yet.</td>
                         </tr>
                      )}
                    </tbody>
