@@ -306,7 +306,7 @@ const App: React.FC = () => {
             icon: '🏢',
           });
         }, 1000);
-      } else if (!availableTabs.some(tab => tab.id === activeTab) && !['signin', 'login', 'access-portal', 'parent-dashboard', 'parent-fees', 'parent-attendance', 'parent-performance', 'parent-communications', 'parent-timetable', 'teacher', 'attendance-register', 'driver', 'teacher-signin', 'principal-signin', 'finance-signin', 'director-signin', 'parent-signin', 'register-learner', 'staff-management', 'class-management', 'county-portal', 'admin', 'profile', 'settings'].includes(activeTab)) {
+      } else if (!availableTabs.some(tab => tab.id === activeTab) && !['signin', 'login', 'access-portal', 'parent-dashboard', 'parent-fees', 'parent-attendance', 'parent-performance', 'parent-communications', 'parent-timetable', 'teacher', 'attendance-register', 'driver', 'teacher-signin', 'principal-signin', 'finance-signin', 'director-signin', 'parent-signin', 'register-learner', 'edit-learner', 'staff-management', 'class-management', 'county-portal', 'admin', 'profile', 'settings'].includes(activeTab)) {
 
         setActiveTab(defaultTab);
       } else if (activeTab === 'dashboard' && ['PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(effectiveRole)) {
@@ -398,6 +398,7 @@ const App: React.FC = () => {
       case 'class-management': 
         return <StudentsModule 
           setActiveTab={setActiveTab} 
+          setEditingStudentId={setEditingStudentId}
           initialTab="classrooms" 
           role={effectiveRole as any} 
           isDarkMode={isDarkMode} 

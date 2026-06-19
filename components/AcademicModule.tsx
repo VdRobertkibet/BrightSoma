@@ -213,7 +213,7 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
         {(activeTab === 'assessments' || activeTab === 'reports') && (
           <div className="flex items-center gap-3 ml-auto">
             <div className="flex items-center gap-3 px-5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
-              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Select Model:</span>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tracking-widest">Select Model:</span>
               <select
                 value={selectedGrade}
                 onChange={(e) => setSelectedGrade(e.target.value as CBCGrade)}

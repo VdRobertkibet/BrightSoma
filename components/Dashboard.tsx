@@ -183,7 +183,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                 adm: doc.data().admissionNumber, 
                 grade: doc.data().grade, 
                 balance: doc.data().balance || 0, 
-                createdAt: doc.data().createdAt 
+                createdAt: doc.data().createdAt,
+                hasFeeRecord: doc.data().hasFeeRecord
               }));
               setAllStudents(docs);
               const recent = [...docs]
@@ -299,7 +300,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     {/* ── Welcome Banner ────────────────────────────────── */}
                     <div className="mb-7">
                       {isMockAuth && (
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-600/10 text-orange-600 rounded-full text-[9px] font-black uppercase tracking-[0.2em] mb-4 border border-orange-600/20 animate-pulse">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-600/10 text-orange-600 rounded-full text-[9px] font-black tracking-[0.2em] mb-4 border border-orange-600/20 animate-pulse">
                           <Zap size={10} fill="currentColor" /> Live Demo Mode
                         </div>
                       )}
@@ -314,7 +315,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                           👋
                         </motion.span>
                         <div>
-                          <p className="text-[10px] md:text-[11px] font-bold text-orange-600 uppercase tracking-[0.2em] mb-0.5">
+                          <p className="text-[10px] md:text-[11px] font-bold text-orange-600 tracking-[0.2em] mb-0.5">
                             {new Date().toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'long' })}
                           </p>
                           <h2 className="text-xl md:text-3xl font-black tracking-tight text-black dark:text-white leading-tight">
@@ -329,7 +330,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                       {/* Thin animated progress bar */}
                       <div className="mt-4 space-y-1.5">
-                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 tracking-widest">
                           <span>Term Progress</span>
                           <span className="text-orange-600">Week 8 of 14</span>
                         </div>
@@ -660,9 +661,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                            </div>
                          </td>
                          <td className="p-4 text-right pr-0">
-                           <span className={`text-xs font-bold px-3 py-1 rounded-full ${student.balance > 0 ? 'bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/30 dark:border-orange-800' : 'bg-green-50 text-green-600 border border-green-100 dark:bg-green-900/30 dark:border-green-800'}`}>
-                              {student.balance > 0 ? `KES ${student.balance.toLocaleString()}` : 'Cleared'}
-                           </span>
+                            <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                              student.hasFeeRecord === false 
+                                ? 'bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-900/30 dark:border-amber-800'
+                                : student.balance > 0 
+                                ? 'bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/30 dark:border-orange-800' 
+                                : 'bg-green-50 text-green-600 border border-green-100 dark:bg-green-900/30 dark:border-green-800'
+                            }`}>
+                               {student.hasFeeRecord === false 
+                                 ? 'Need Action' 
+                                 : student.balance > 0 
+                                 ? `KES ${student.balance.toLocaleString()}` 
+                                 : 'Cleared'}
+                            </span>
                          </td>
                         </tr>
                       ))}

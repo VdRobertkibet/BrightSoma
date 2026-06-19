@@ -68,11 +68,14 @@ export interface Student {
   files?: Record<string, string>;
   performance: number; // For dashboard stats, though we use rubrics for reports
   balance: number;
+  feePaidOnEnrollment?: number;
+  totalFeesPaidTillNow?: number;
   pocketMoneyBalance?: number;
   dormitoryId?: string;
   parentPhone?: string;
   learningArea?: string;
   createdAt?: string;
+  hasFeeRecord?: boolean;
 }
 
 export interface Teacher {
@@ -258,6 +261,7 @@ export interface TransitLog {
   id: string;
   schoolId: string;
   studentId: string;
+  studentName?: string;
   driverId?: string;
   routeId?: string;
   eventType: TransitEventType;

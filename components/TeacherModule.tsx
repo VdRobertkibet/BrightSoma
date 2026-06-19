@@ -142,7 +142,14 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
             ? profile
             : TEACHER_MOCK_DATA;
           setTeacherData(targetTeacher);
-          setStudents(MOCK_STUDENTS.map(s => ({ ...s, name: toTitleCase(s.name) })));
+          setStudents(MOCK_STUDENTS.map(s => ({
+            ...s,
+            name: toTitleCase(s.name || ''),
+            grade: toTitleCase(s.grade || '') as any,
+            stream: toTitleCase(s.stream || ''),
+            boardingType: toTitleCase(s.boardingType || '') as any,
+            status: toTitleCase(s.status || '') as any
+          })));
           setTimetable(MOCK_TIMETABLE);
           setAttendanceLogs(MOCK_ATTENDANCE);
           setSchoolProfile({
@@ -190,7 +197,15 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
         const unsubStudents = onSnapshot(qStudents, (snapshot) => {
           setStudents(snapshot.docs.map(doc => {
             const s = doc.data() as Student;
-            return { ...s, id: doc.id, name: toTitleCase(s.name) };
+            return {
+              ...s,
+              id: doc.id,
+              name: toTitleCase(s.name || ''),
+              grade: toTitleCase(s.grade || '') as any,
+              stream: toTitleCase(s.stream || ''),
+              boardingType: toTitleCase(s.boardingType || '') as any,
+              status: toTitleCase(s.status || '') as any
+            };
           }));
         });
         unsubs.push(unsubStudents);
@@ -821,7 +836,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
                       <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
                         <Users size={16} />
                       </div>
-                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">Attendance</span>
+                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 tracking-widest">Attendance</span>
                     </div>
                     <p className="text-2xl font-black text-black dark:text-white mb-1">
                       {Math.round((attendanceLogs.filter(l => ['PRESENT', 'LATE', 'EXCUSED'].includes(l.status)).length / Math.max(classStudents.length, 1)) * 100)}%
@@ -838,7 +853,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
                       <div className="p-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg">
                         <BookOpen size={16} />
                       </div>
-                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">Subject Progress</span>
+                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 tracking-widest">Subject Progress</span>
                     </div>
                     <p className="text-2xl font-black text-black dark:text-white mb-1">
                       {teacherClasses.length > 0 ? "On Track" : "N/A"}
@@ -855,7 +870,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
                       <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg">
                         <Award size={16} />
                       </div>
-                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">Performance</span>
+                      <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 tracking-widest">Performance</span>
                     </div>
                     <p className="text-2xl font-black text-black dark:text-white mb-1">
                       {classStudents.length > 0 
@@ -874,7 +889,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
                       <div className="p-2 bg-white/20 text-white rounded-lg">
                         <Target size={16} />
                       </div>
-                      <span className="text-[10px] font-black text-orange-100 uppercase tracking-widest">Primary Role</span>
+                      <span className="text-[10px] font-black text-orange-100 tracking-widest">Primary Role</span>
                     </div>
                     <p className="text-xl font-black text-white mb-1 leading-tight">
                       Class Teacher
@@ -1159,7 +1174,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
                             </div>
                             
                             <div className="space-y-3 mb-6">
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Available Registers</p>
+                              <p className="text-[10px] font-bold text-slate-400 tracking-widest">Available Registers</p>
                               {isTeacherOwnClass && (
                                 <div className="mb-2">
                                   <span className="inline-block px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/60 rounded-xl text-[10px] font-extrabold text-emerald-700 dark:text-emerald-400 shadow-sm animate-pulse">
@@ -1214,7 +1229,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
                         </button>
                                            {isTeacherOwnClass ? (
                         <div className="mb-10">
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Primary Register</p>
+                          <p className="text-xs font-black text-slate-400 tracking-widest mb-3">Primary Register</p>
                           <div 
                             onClick={() => {
                               setSelectedAttType('CLASS');
@@ -1244,7 +1259,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
                       ) : null}
                       
                       <div>
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Subject Lesson Registers</p>
+                        <p className="text-xs font-black text-slate-400 tracking-widest mb-3">Subject Lesson Registers</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                           {classSubjects.map((sub, idx) => (
                             <div 
@@ -1444,7 +1459,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
                     <div className="flex flex-wrap gap-3 items-center">
                       {/* Year Selector */}
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Academic Year</label>
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest">Academic Year</label>
                         <select 
                           value={weeklyYear} 
                           onChange={e => setWeeklyYear(Number(e.target.value))}
@@ -1456,7 +1471,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
 
                       {/* Term Selector */}
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Term</label>
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest">Term</label>
                         <select 
                           value={weeklyTerm} 
                           onChange={e => setWeeklyTerm(e.target.value)}
@@ -1470,7 +1485,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
 
                       {/* Month Selector */}
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Month</label>
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest">Month</label>
                         <select 
                           value={weeklyMonth} 
                           onChange={e => setWeeklyMonth(Number(e.target.value))}
@@ -1485,7 +1500,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
 
                     {/* Week Segment selector - Matches Fees segmented design */}
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Select Week</label>
+                      <label className="text-[10px] font-black text-slate-400 tracking-widest mb-1.5">Select Week</label>
                       <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl gap-1 border border-slate-200 dark:border-slate-700">
                         {weeks.map((_, idx) => {
                           const weekNum = idx + 1;
@@ -1626,7 +1641,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
                           <div key={student.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
                             <div className="flex-shrink-0 w-48">
                               <h5 className="text-sm font-bold text-black dark:text-white truncate">{student.name}</h5>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{pct}% Attendance</p>
+                              <p className="text-[10px] font-bold text-slate-400 tracking-widest">{pct}% Attendance</p>
                             </div>
                             
                             <div className="flex-1 flex gap-1.5 flex-wrap">
@@ -1705,7 +1720,7 @@ const TeacherModule: React.FC<TeacherModuleProps> = ({ setActiveTab, user, profi
                           <div key={student.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
                             <div className="flex-shrink-0 w-48">
                               <h5 className="text-sm font-bold text-black dark:text-white truncate">{student.name}</h5>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{pct}% Attendance</p>
+                              <p className="text-[10px] font-bold text-slate-400 tracking-widest">{pct}% Attendance</p>
                             </div>
                             
                             <div className="flex-1 flex gap-1.5 flex-wrap">

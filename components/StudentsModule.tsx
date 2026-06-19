@@ -142,7 +142,14 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
     if (isMockAuth) {
       const loadMockData = async () => {
         const { MOCK_STUDENTS } = await import('../demoData');
-        setStudents(MOCK_STUDENTS.map(s => ({ ...s, name: toTitleCase(s.name) })));
+        setStudents(MOCK_STUDENTS.map(s => ({
+          ...s,
+          name: toTitleCase(s.name || ''),
+          grade: toTitleCase(s.grade || '') as any,
+          stream: toTitleCase(s.stream || ''),
+          boardingType: toTitleCase(s.boardingType || '') as any,
+          status: toTitleCase(s.status || '') as any
+        })));
         setIsLoading(false);
         setCurrentUserRole(role);
       };
@@ -175,7 +182,15 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
         const studentData: Student[] = [];
         snapshot.forEach((doc) => {
           const s = doc.data() as Student;
-          studentData.push({ ...s, id: doc.id, name: toTitleCase(s.name) });
+          studentData.push({
+            ...s,
+            id: doc.id,
+            name: toTitleCase(s.name || ''),
+            grade: toTitleCase(s.grade || '') as any,
+            stream: toTitleCase(s.stream || ''),
+            boardingType: toTitleCase(s.boardingType || '') as any,
+            status: toTitleCase(s.status || '') as any
+          });
         });
         setStudents(studentData);
         setIsLoading(false);
@@ -841,32 +856,38 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
                         <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl w-fit">
                           <GraduationCap size={14} className="text-orange-500" />
                           <div className="flex flex-col leading-none">
-                            <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">
+                            <span className="text-[11px] font-black text-slate-800 dark:text-slate-200 tracking-tight">
                               {student.grade}
                             </span>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{student.stream}</span>
+                            <span className="text-[9px] font-bold text-slate-400 tracking-widest">{student.stream}</span>
                           </div>
                         </div>
                       </td>
                       <td className="p-4 whitespace-nowrap">
                         <div className="flex items-center gap-2 px-3 py-2 bg-orange-50/50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/30 rounded-xl w-fit">
                           <Home size={14} className="text-orange-500" />
-                          <span className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-wide">
+                          <span className="text-[10px] font-black text-orange-700 dark:text-orange-400 tracking-wide">
                             {student.boardingType}
                           </span>
                         </div>
                       </td>
                       <td className="p-4 text-right whitespace-nowrap">
                         <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${
-                          student.balance < 0 
+                          student.hasFeeRecord === false 
+                            ? 'bg-amber-50 border-amber-100 text-amber-600 dark:bg-amber-900/20 dark:border-amber-900/30 dark:text-amber-400' 
+                            : student.balance < 0 
                             ? 'bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-900/20 dark:border-rose-900/30 dark:text-rose-400' 
                             : student.balance > 0 
                             ? 'bg-orange-50 border-orange-100 text-orange-600 dark:bg-orange-900/20 dark:border-orange-900/30 dark:text-orange-400' 
                             : 'bg-green-50 border-green-100 text-green-600 dark:bg-green-900/20 dark:border-green-900/30 dark:text-green-400'
                         }`}>
-                          <Banknote size={14} />
+                          {student.hasFeeRecord === false ? <AlertCircle size={14} /> : <Banknote size={14} />}
                           <span className="text-[11px] font-black tracking-tight">
-                            {student.balance !== 0 ? `KES ${Math.abs(student.balance).toLocaleString()}` : 'Cleared'}
+                            {student.hasFeeRecord === false 
+                              ? 'Need Action' 
+                              : student.balance !== 0 
+                              ? `KES ${Math.abs(student.balance).toLocaleString()}` 
+                              : 'Cleared'}
                           </span>
                         </div>
                       </td>
@@ -1660,11 +1681,11 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
                   )}
                   <div>
                     <h1 className="text-lg font-black text-black dark:text-white tracking-tight leading-tight">{invoiceSchoolName}</h1>
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Official Fee Statement</p>
+                    <p className="text-[9px] font-bold text-slate-500 tracking-widest mt-0.5">Official Fee Statement</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="inline-block px-4 py-1.5 bg-orange-100 text-orange-700 text-[10px] font-black rounded-lg uppercase tracking-widest mb-2">
+                  <div className="inline-block px-4 py-1.5 bg-orange-100 text-orange-700 text-[10px] font-black rounded-lg tracking-widest mb-2">
                     📄 Fee Invoice
                   </div>
                   <p className="text-[11px] font-mono font-bold text-slate-500 block">
@@ -1679,19 +1700,19 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
               {/* Student Info */}
               <div className="grid grid-cols-2 gap-4 mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-100">
                 <div>
-                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Learner Name</p>
+                  <p className="text-[9px] tracking-widest font-black text-slate-400 mb-1">Learner Name</p>
                   <p className="font-black text-black dark:text-white text-sm leading-tight">{invoiceStudent.name}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Admission No.</p>
+                  <p className="text-[9px] tracking-widest font-black text-slate-400 mb-1">Admission No.</p>
                   <p className="font-black text-black dark:text-white font-mono text-sm">{invoiceStudent.admissionNumber}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Grade / Stream</p>
+                  <p className="text-[9px] tracking-widest font-black text-slate-400 mb-1">Grade / Stream</p>
                   <p className="font-bold text-black dark:text-white text-sm">{invoiceStudent.grade} {invoiceStudent.stream && `• ${invoiceStudent.stream}`}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-1">Category</p>
+                  <p className="text-[9px] tracking-widest font-black text-slate-400 mb-1">Category</p>
                   <span className="inline-block px-3 py-1 bg-orange-100 text-orange-700 text-[10px] font-black rounded-full capitalize">
                     {invoiceStudent.boardingType || 'Day Scholar'}
                   </span>
@@ -1701,12 +1722,12 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
               {/* Fee Breakdown Table */}
               {invoiceFeeStructures.length > 0 && (
                 <div className="mb-6">
-                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-3">Fee Breakdown</p>
+                  <p className="text-[9px] tracking-widest font-black text-slate-400 mb-3">Fee Breakdown</p>
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-slate-100">
-                        <th className="text-left p-3 rounded-tl-xl font-black text-black dark:text-white text-[10px] uppercase tracking-wider">Description</th>
-                        <th className="text-right p-3 rounded-tr-xl font-black text-black dark:text-white text-[10px] uppercase tracking-wider">Amount (KES)</th>
+                        <th className="text-left p-3 rounded-tl-xl font-black text-black dark:text-white text-[10px] tracking-wider">Description</th>
+                        <th className="text-right p-3 rounded-tr-xl font-black text-black dark:text-white text-[10px] tracking-wider">Amount (KES)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1739,7 +1760,7 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
               {/* Payment History */}
               {invoicePayments.length > 0 && (
                 <div className="mb-6">
-                  <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-3">Payments Received</p>
+                  <p className="text-[9px] tracking-widest font-black text-slate-400 mb-3">Payments Received</p>
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-slate-100">
@@ -1782,24 +1803,30 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
                   .reduce((s, f) => s + (Number(f.amount) || 0), 0);
                 const totalPaid = invoicePayments.reduce((s, p) => s + (p.amount || 0), 0);
                 const balance = invoiceStudent.balance ?? (totalFees - totalPaid);
-                const isCleared = balance <= 0;
+                const showPending = invoiceStudent.hasFeeRecord === false;
+                const isCleared = !showPending && balance <= 0;
                 return (
-                  <div className={`relative rounded-2xl p-6 border-2 mt-4 overflow-hidden ${isCleared ? 'border-green-200 bg-green-50' : 'border-rose-200 bg-rose-50'}`}>
+                  <div className={`relative rounded-2xl p-6 border-2 mt-4 overflow-hidden ${showPending ? 'border-amber-200 bg-amber-50' : isCleared ? 'border-green-200 bg-green-50' : 'border-rose-200 bg-rose-50'}`}>
                     {isCleared && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <span className="text-[80px] font-black text-green-200 opacity-30 rotate-[-20deg] select-none tracking-widest">PAID</span>
                       </div>
                     )}
+                    {showPending && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span className="text-[80px] font-black text-amber-200 opacity-30 rotate-[-20deg] select-none tracking-widest">PENDING</span>
+                      </div>
+                    )}
                     <div className="relative flex items-end justify-between">
                       <div>
-                        <p className={`text-[9px] uppercase tracking-widest font-black mb-1 ${isCleared ? 'text-green-600' : 'text-rose-500'}`}>
-                          {isCleared ? 'Account Status' : 'Outstanding Balance'}
+                        <p className={`text-[9px] tracking-widest font-black mb-1 ${showPending ? 'text-amber-600' : isCleared ? 'text-green-600' : 'text-rose-500'}`}>
+                          {showPending ? 'Action Required' : isCleared ? 'Account Status' : 'Outstanding Balance'}
                         </p>
-                        <p className={`text-3xl font-black tracking-tight ${isCleared ? 'text-green-600' : 'text-rose-600'}`}>
-                          {isCleared ? '✅ Fully Paid' : `KES ${Math.abs(balance).toLocaleString()} Owing`}
+                        <p className={`text-3xl font-black tracking-tight ${showPending ? 'text-amber-600' : isCleared ? 'text-green-600' : 'text-rose-600'}`}>
+                          {showPending ? '⚠️ Fees Pending' : isCleared ? '✅ Fully Paid' : `KES ${Math.abs(balance).toLocaleString()} Owing`}
                         </p>
                       </div>
-                      {!isCleared && (
+                      {!isCleared && !showPending && (
                         <div className="text-right">
                           <p className="text-[10px] font-black text-rose-500">Please clear balance</p>
                           <p className="text-[9px] text-slate-500 mt-0.5">Payment due this term</p>
@@ -1873,13 +1900,13 @@ const StudentDetailModal: React.FC<{ student: any; onClose: () => void }> = ({ s
           {/* Printable Content */}
           <div className="print:p-8">
             <div className="hidden print:flex flex-col items-center mb-10 border-b pb-8">
-              <h1 className="text-2xl font-bold">STUDENT REGISTRATION DETAILS</h1>
+              <h1 className="text-2xl font-bold">Student Registration Details</h1>
               <p className="text-sm font-medium">BrightSoma eSchool Management Platform</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
               <div className="space-y-6">
-                <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-[0.2em] border-b pb-2 border-slate-100">Core Information</h4>
+                <h4 className="text-xs font-bold text-black dark:text-white tracking-[0.2em] border-b pb-2 border-slate-100">Core Information</h4>
                 <div className="space-y-4">
                   {[
                     { label: 'Full Name', value: student.name },
@@ -1891,7 +1918,7 @@ const StudentDetailModal: React.FC<{ student: any; onClose: () => void }> = ({ s
                     { label: 'Date of Admission', value: student.dateOfAdmission }
                   ].map(item => (
                     <div key={item.label} className="flex justify-between items-center py-1">
-                      <span className="text-[11px] font-bold text-black dark:text-white uppercase">{item.label}</span>
+                      <span className="text-[11px] font-bold text-black dark:text-white">{item.label}</span>
                       <span className="text-sm font-semibold text-black dark:text-slate-300">{item.value}</span>
                     </div>
                   ))}
@@ -1899,7 +1926,7 @@ const StudentDetailModal: React.FC<{ student: any; onClose: () => void }> = ({ s
               </div>
 
               <div className="space-y-6">
-                <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-[0.2em] border-b pb-2 border-slate-100">Parental Details</h4>
+                <h4 className="text-xs font-bold text-black dark:text-white tracking-[0.2em] border-b pb-2 border-slate-100">Parental Details</h4>
                 <div className="space-y-4">
                    {[
                     { label: 'Father Name', value: student.parentInfo.fatherName || 'N/A' },
@@ -1909,7 +1936,7 @@ const StudentDetailModal: React.FC<{ student: any; onClose: () => void }> = ({ s
                     { label: 'Emergency Contact', value: student.parentInfo.emergencyContact || 'N/A' }
                   ].map(item => (
                     <div key={item.label} className="flex justify-between items-center py-1">
-                      <span className="text-[11px] font-bold text-black dark:text-white uppercase">{item.label}</span>
+                      <span className="text-[11px] font-bold text-black dark:text-white">{item.label}</span>
                       <span className="text-sm font-semibold text-black dark:text-slate-300">{item.value}</span>
                     </div>
                   ))}
@@ -1917,7 +1944,7 @@ const StudentDetailModal: React.FC<{ student: any; onClose: () => void }> = ({ s
               </div>
 
               <div className="space-y-6 md:col-span-2">
-                <h4 className="text-xs font-bold text-black dark:text-white uppercase tracking-[0.2em] border-b pb-2 border-slate-100">Medical & Special Needs</h4>
+                <h4 className="text-xs font-bold text-black dark:text-white tracking-[0.2em] border-b pb-2 border-slate-100">Medical & Special Needs</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                    {[
                     { label: 'Blood Group', value: student.medicalInfo.bloodGroup || 'Unknown' },
@@ -1925,7 +1952,7 @@ const StudentDetailModal: React.FC<{ student: any; onClose: () => void }> = ({ s
                     { label: 'Conditions', value: student.medicalInfo.conditions || 'None recorded' }
                   ].map(item => (
                     <div key={item.label} className="space-y-1">
-                      <p className="text-[10px] font-bold text-black dark:text-white uppercase">{item.label}</p>
+                      <p className="text-[10px] font-bold text-black dark:text-white">{item.label}</p>
                       <p className="text-sm font-semibold text-black dark:text-slate-300">{item.value}</p>
                     </div>
                   ))}
