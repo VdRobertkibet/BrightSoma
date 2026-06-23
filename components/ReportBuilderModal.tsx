@@ -20,6 +20,9 @@ interface ReportBuilderModalProps {
   students?: any[];
   schoolProfile: any;
   assessments: any[];
+  term?: string;
+  year?: number;
+  assessmentType?: string;
   onClose: () => void;
   onAssessmentChange: (studentId: string, la: string, level: string) => Promise<void>;
 }
@@ -74,6 +77,9 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
   students = [],
   schoolProfile,
   assessments,
+  term = 'Term 1',
+  year = new Date().getFullYear(),
+  assessmentType = 'End of Term',
   onClose,
   onAssessmentChange
 }) => {
@@ -97,7 +103,7 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
   }, [openDropdown]);
 
   const isSample = currentStudent.id === 'sample-123';
-  const reportId = `${currentStudent.id}_Term1_2026`;
+  const reportId = `${currentStudent.id}_${term.replace(/\s+/g, '')}_${year}`;
   const rawSubjects = isSample
     ? LOWER_PRIMARY_LEARNING_AREAS
     : (currentStudent.grade?.startsWith('Grade 7') || currentStudent.grade?.startsWith('Grade 8') || currentStudent.grade?.startsWith('Grade 9'))
@@ -153,8 +159,9 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
         studentId: currentStudent.id,
         teacherRemark,
         htRemark,
-        term: 'Term 1',
-        year: 2026,
+        term: term,
+        year: year,
+        assessmentType: assessmentType,
         updatedAt: serverTimestamp()
       }, { merge: true });
       toast.success('Remarks saved successfully!');
@@ -261,7 +268,7 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
       return `${i + 1}. ${la}: ${level}  ${pct}  ${pnt}`;
     }).join('\n');
 
-    return `Dear Parent/Guardian of ${currentStudent.name},\nGrade: ${currentStudent.grade}\n${schoolName} – CBC Progress Report, Term 1 2026\n\nSubject Performance:\n${subjectLines}\n\nOverall: Your child is performing at ${overallDesc} level.\n\nClass Teacher Remarks: ${teacherRemark || 'Steady progress observed.'}\n\n– ${schoolName}`;
+    return `Dear Parent/Guardian of ${currentStudent.name},\nGrade: ${currentStudent.grade}\n${schoolName} – CBC Progress Report, ${term} ${year} (${assessmentType})\n\nSubject Performance:\n${subjectLines}\n\nOverall: Your child is performing at ${overallDesc} level.\n\nClass Teacher Remarks: ${teacherRemark || 'Steady progress observed.'}\n\n– ${schoolName}`;
   };
 
   const handleSaveAndSendSms = async () => {
@@ -503,8 +510,8 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
               </div>
             </div>
             <div className="text-right">
-              <div className={`inline-block px-4 py-1.5 ${theme.bgLight} ${theme.text} rounded-full text-[10px] font-black tracking-widest mb-3 border ${theme.border}`}>Progress Report</div>
-              <h2 className="text-lg font-black text-slate-900 mb-0.5 tracking-tight">Term 1, 2026</h2>
+              <div className={`inline-block px-4 py-1.5 ${theme.bgLight} ${theme.text} rounded-full text-[10px] font-black tracking-widest mb-3 border ${theme.border}`}>{assessmentType} Report</div>
+              <h2 className="text-lg font-black text-slate-900 mb-0.5 tracking-tight">{term}, {year}</h2>
             </div>
           </div>
 
@@ -526,7 +533,7 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
             {[
               { label: 'Admission No', value: currentStudent.admissionNumber },
               { label: 'Grade Level', value: currentStudent.grade },
-              { label: 'Term / Year', value: 'Term 1, 2026' },
+              { label: 'Term / Year', value: `${term}, ${year}` },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="text-[9px] font-black text-slate-400 tracking-wider mb-1">{label}</p>
