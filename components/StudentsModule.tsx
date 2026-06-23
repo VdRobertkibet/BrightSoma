@@ -872,24 +872,40 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
                         </div>
                       </td>
                       <td className="p-3 text-right whitespace-nowrap">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${
-                          student.hasFeeRecord === false 
-                            ? 'bg-amber-50 border-amber-100 text-amber-600 dark:bg-amber-900/20 dark:border-amber-900/30 dark:text-amber-400' 
-                            : student.balance < 0 
-                            ? 'bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-900/20 dark:border-rose-900/30 dark:text-rose-400' 
-                            : student.balance > 0 
-                            ? 'bg-orange-50 border-orange-100 text-orange-600 dark:bg-orange-900/20 dark:border-orange-900/30 dark:text-orange-400' 
-                            : 'bg-green-50 border-green-100 text-green-600 dark:bg-green-900/20 dark:border-green-900/30 dark:text-green-400'
-                        }`}>
-                          {student.hasFeeRecord === false ? <AlertCircle size={12} /> : <Banknote size={12} />}
-                          <span className="text-[10px] font-bold tracking-tight">
-                            {student.hasFeeRecord === false 
-                              ? 'Need Action' 
-                              : student.balance !== 0 
-                              ? `KES ${Math.abs(student.balance).toLocaleString()}` 
-                              : 'Cleared'}
-                          </span>
-                        </div>
+                        {(() => {
+                          // hasFeeRecord must be explicitly true — undefined/null/false all mean no fee record set
+                          const hasFee = student.hasFeeRecord === true;
+                          const bal = student.balance ?? 0;
+                          let badgeClass = '';
+                          let icon = <AlertCircle size={12} />;
+                          let label = '';
+                          if (!hasFee) {
+                            // No fee record at all — amber warning
+                            badgeClass = 'bg-amber-50 border-amber-100 text-amber-600 dark:bg-amber-900/20 dark:border-amber-900/30 dark:text-amber-400';
+                            label = 'No Fee Set';
+                          } else if (bal > 0) {
+                            // Outstanding balance (owes money)
+                            badgeClass = 'bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-900/20 dark:border-rose-900/30 dark:text-rose-400';
+                            icon = <Banknote size={12} />;
+                            label = `Owes KES ${bal.toLocaleString()}`;
+                          } else if (bal < 0) {
+                            // Overpaid / credit
+                            badgeClass = 'bg-blue-50 border-blue-100 text-blue-600 dark:bg-blue-900/20 dark:border-blue-900/30 dark:text-blue-400';
+                            icon = <Banknote size={12} />;
+                            label = `Credit KES ${Math.abs(bal).toLocaleString()}`;
+                          } else {
+                            // bal === 0 AND hasFeeRecord true → fully cleared
+                            badgeClass = 'bg-green-50 border-green-100 text-green-600 dark:bg-green-900/20 dark:border-green-900/30 dark:text-green-400';
+                            icon = <Banknote size={12} />;
+                            label = 'Cleared';
+                          }
+                          return (
+                            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${badgeClass}`}>
+                              {icon}
+                              <span className="text-[10px] font-bold tracking-tight">{label}</span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="p-3 text-right pr-4">
                         <div className="flex justify-end gap-1.5">
@@ -1130,7 +1146,11 @@ const StudentsModule: React.FC<StudentsModuleProps> = ({
                                 />
                              </div>
                           </td>
-                          <td className="p-3 text-right font-semibold text-slate-800 dark:text-slate-200 text-xs pr-4">KES {(student as any).balance > 0 ? '0' : '1,500'}</td>
+                           <td className="p-3 text-right font-semibold text-slate-800 dark:text-slate-200 text-xs pr-4">
+                             {student.hasFeeRecord === true
+                               ? (student.balance === 0 ? <span className="text-green-600">Cleared</span> : <span className="text-rose-600">KES {(student.balance ?? 0).toLocaleString()}</span>)
+                               : <span className="text-amber-500">No Fee Set</span>}
+                           </td>
                        </tr>
                      ))}
                      {students.filter(s => s.grade === selectedClassroomGrade).length === 0 && (

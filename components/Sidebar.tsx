@@ -24,6 +24,7 @@ import { UserRole } from '../types';
 import { auth, db } from '../src/firebase';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { NAVIGATION_ITEMS } from '../constants';
+import { useNavigate } from 'react-router-dom';
 
 interface SidebarProps {
   activeTab: string;
@@ -53,11 +54,13 @@ const TOOLTIP_TEXTS: Record<string, string> = {
   'platform-admin': 'Provision and manage all registered schools on BrightSoma.',
   'finance-analytics': 'View monthly and yearly revenue from all schools across the platform.',
   'teacher': 'Your personal teaching portal for CBC marks and attendance.',
+  'attendance-register': 'Track student presence and generate daily/monthly attendance reports.',
   'parent': 'Track your child\'s performance, fees, and school transport.',
   'driver': 'Manage your assigned route and student boarding status.',
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, logout, isDarkMode, schoolId, edition = 'starter', isSidebarOpen, setIsSidebarOpen, enabledModules }) => {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<any>(null);
   const [hoveredTooltip, setHoveredTooltip] = useState<{ id: string, text: string, top: number } | null>(null);
 
@@ -76,7 +79,8 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, logout
   const navigationItems = useMemo(() => {
     return NAVIGATION_ITEMS.filter(item => 
       item.roles.includes(role) && 
-      (role === 'PLATFORM_ADMIN' ? true : enabledModules.includes(item.id))
+      (role === 'PLATFORM_ADMIN' ? true : enabledModules.includes(item.id)) &&
+      !(role === 'TEACHER' && item.id === 'finance')
     );
   }, [role, enabledModules]);
 
@@ -91,8 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, logout
       )}
 
       <aside 
-        className={`fixed lg:relative inset-y-0 left-0 z-50 w-72 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 flex flex-col transition-all duration-300 transform 
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#0c4a6e] dark:bg-slate-900 border-r border-sky-800/40 flex flex-col transition-all duration-300 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="p-8 flex items-center justify-between lg:justify-start gap-3">
           <div className="flex items-center gap-3">
@@ -101,17 +104,17 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, logout
                 <img src={profile.logo} alt="Logo" className="w-full h-full object-cover" />
               </div>
             ) : (
-              <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+              <div className="w-10 h-10 bg-[#0462b4] rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
                 <GraduationCap size={24} />
               </div>
             )}
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 via-slate-700 to-slate-400 dark:from-white dark:to-slate-400 bg-clip-text text-transparent leading-none tracking-tight">
-                Bright<span className="text-orange-600">Soma</span>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-white leading-tight tracking-tight truncate pr-2">
+                {profile?.schoolName || profile?.name || 'BrightSoma'}
               </h1>
               <div className="flex items-center gap-1.5 mt-1">
-                <div className={`w-2 h-2 rounded-full ${['PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(role) ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]' : (edition === 'starter' ? 'bg-slate-400' : 'bg-orange-500')} animate-pulse`} />
-                <span className="text-[10px] font-bold text-slate-500 capitalize italic">
+                <div className={`w-2 h-2 rounded-full ${['PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(role) ? 'bg-indigo-400' : (edition === 'starter' ? 'bg-slate-300' : 'bg-blue-300')} animate-pulse`} />
+                <span className="text-[10px] font-bold text-white/80 capitalize italic">
                   {['PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(role) ? 'Platform Owner' : `${edition} Edition`}
                 </span>
               </div>
@@ -119,7 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, logout
           </div>
           <button 
             onClick={() => setIsSidebarOpen(false)}
-            className="lg:hidden p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            className="lg:hidden p-2 text-white/80 hover:text-white transition-colors"
           >
             <X size={20} />
           </button>
@@ -143,17 +146,12 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, logout
               onClick={() => {
                 const targetId = item.id === 'staff-management' ? 'admin' : item.id;
                 setActiveTab(targetId);
-                if (window.innerWidth < 1024) {
-                  setIsSidebarOpen(false);
-                }
+                // Sidebar stays open unless explicitly closed
               }}
               data-id={item.id}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-[1.25rem] transition-all duration-200 group
-                ${activeTab === item.id 
-                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' 
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-white'}`}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-[1.25rem] transition-all duration-300 group ${activeTab === item.id ? 'bg-white text-sky-700 shadow-xl scale-105' : 'text-white/70 hover:bg-white/20 hover:text-white hover:scale-[1.02] hover:shadow-lg hover:shadow-black/5'}`}
             >
-              <span className={`transition-colors duration-300 ${activeTab === item.id ? 'text-orange-600 dark:text-orange-400 scale-110' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'}`}>
+              <span className={`transition-colors duration-300 ${activeTab === item.id ? 'text-sky-700 scale-110' : 'text-white/60 group-hover:text-white'}`}>
                 {item.icon}
               </span>
               <div className="flex flex-col items-start text-left">
@@ -164,6 +162,8 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, logout
                     item.id === 'finance-analytics' ? 'School money' :
                     item.id === 'communication' ? 'Global broadcast' :
                     item.label
+                  ) : item.id === 'attendance-register' ? (
+                    ['ADMIN', 'DIRECTOR', 'PRINCIPAL', 'HEADTEACHER'].includes(role) ? 'School Attendance' : 'Class Attendance'
                   ) : item.label}
                 </span>
               </div>
@@ -174,29 +174,6 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, logout
 
 
         <div className="p-6">
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-[0.5rem] border border-slate-100 dark:border-slate-800 transition-colors">
-            <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 tracking-wider mb-2">Support</p>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">Need assistance with the ERP?</p>
-            <a 
-              href="https://wa.me/254757956643" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="w-full py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-[11px] font-bold uppercase rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2 mb-3"
-            >
-              <MessageSquare size={14} className="text-orange-500" />
-              Help center
-            </a>
-
-            {['ADMIN', 'DIRECTOR', 'HEADTEACHER', 'PRINCIPAL'].includes(role) && (
-              <button 
-                onClick={() => setActiveTab('profile')}
-                className="w-full py-3.5 bg-slate-900 dark:bg-black hover:bg-black dark:hover:bg-slate-800 text-white text-[11px] font-black uppercase rounded-2xl transition-all active:scale-95 shadow-xl flex items-center justify-center gap-2 group border border-white/10"
-              >
-                <Zap size={14} className="fill-white group-hover:scale-125 transition-transform" />
-                Manage upgrade
-              </button>
-            )}
-          </div>
           
           <button 
             onClick={async () => {
@@ -232,3 +209,4 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, logout
 };
 
 export default Sidebar;
+
