@@ -82,7 +82,22 @@ const App: React.FC = () => {
   // ─── UI State ─────────────────────────────────────────────────────────────────
   const [demoOverride, setDemoOverride] = useState<{ role: UserRole | null; edition: 'starter' | 'professional' | 'elite' } | null>(null);
   const [impersonatedTeacher, setImpersonatedTeacher] = useState<any | null>(null);
-  const [academicPeriod, setAcademicPeriod] = useState(ACADEMIC_PERIODS[0]);
+  const getCurrentTerm = () => {
+    const month = new Date().getMonth() + 1;
+    const year = new Date().getFullYear();
+    if (month >= 1 && month <= 4) return `Term 1 ${year}`;
+    if (month >= 5 && month <= 8) return `Term 2 ${year}`;
+    return `Term 3 ${year}`;
+  };
+
+  const [academicPeriod, setAcademicPeriod] = useState(() => {
+    const saved = localStorage.getItem('brightsoma_academicPeriod');
+    return saved || getCurrentTerm();
+  });
+
+  useEffect(() => {
+    localStorage.setItem('brightsoma_academicPeriod', academicPeriod);
+  }, [academicPeriod]);
   
   const activeTab = location.pathname === '/' || location.pathname === '' 
     ? 'home'

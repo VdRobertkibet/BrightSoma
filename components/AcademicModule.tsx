@@ -62,7 +62,11 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
   const setActiveTab = propOnTabChange || setLocalActiveTab;
 
   const [selectedGrade, setSelectedGrade] = useState<CBCGrade>(CBCGrade.G4);
+  const [selectedTerm, setSelectedTerm] = useState<string>('Term 1');
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [assessmentType, setAssessmentType] = useState<string>('End of Term');
   const [showReportModal, setShowReportModal] = useState(false);
+  const [autoSms, setAutoSms] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -161,7 +165,7 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
         const assessmentData = {
           schoolId, studentId, learningArea, level,
           pnt, percentage,
-          term: 'Term 1', year: 2026, strand: 'General',
+          term: selectedTerm, year: selectedYear, strand: assessmentType,
           remarks: existing?.remarks || ''
         };
         if (existing) {
@@ -184,9 +188,10 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
     return isJunior ? JUNIOR_SECONDARY_LEARNING_AREAS : LOWER_PRIMARY_LEARNING_AREAS;
   };
 
-  const handleOpenReport = async (student: any) => {
+  const handleOpenReport = async (student: any, openSms = false) => {
     setSelectedStudent(student);
     setShowSendConfirmModal(false);
+    setAutoSms(openSms);
     setShowReportModal(true);
   };
 
@@ -211,6 +216,10 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
         students={students}
         schoolProfile={schoolProfile}
         assessments={assessments}
+        term={selectedTerm}
+        year={selectedYear}
+        assessmentType={assessmentType}
+        autoOpenSms={autoSms}
         onClose={() => setShowReportModal(false)}
         onAssessmentChange={handleAssessmentChange}
       />
@@ -233,19 +242,41 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
           </div>
         </div>
 
-        {/* Grade Selector (Only show for Assessments & Reports) */}
+        {/* Selectors (Only show for Assessments & Reports) */}
         {(activeTab === 'assessments' || activeTab === 'reports') && (
-          <div className="flex items-center gap-3 bg-white/10 px-4 py-2.5 rounded-2xl">
-            <span className="hidden sm:inline text-[10px] font-bold text-slate-300 tracking-widest uppercase">Select Model:</span>
-            <select
-              value={selectedGrade}
-              onChange={(e) => setSelectedGrade(e.target.value as CBCGrade)}
-              className="bg-transparent text-sm font-bold text-white outline-none cursor-pointer border-none focus:ring-0 [&>option]:text-slate-900"
-            >
-              {(activeGradesList.length > 0 ? activeGradesList : CBC_GRADES).map(g => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-xl">
+              <select
+                value={selectedTerm}
+                onChange={(e) => setSelectedTerm(e.target.value)}
+                className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer border-none focus:ring-0 [&>option]:text-slate-900"
+              >
+                <option value="Term 1">Term 1</option>
+                <option value="Term 2">Term 2</option>
+                <option value="Term 3">Term 3</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-xl">
+              <select
+                value={assessmentType}
+                onChange={(e) => setAssessmentType(e.target.value)}
+                className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer border-none focus:ring-0 [&>option]:text-slate-900"
+              >
+                <option value="Mid Term">Mid Term</option>
+                <option value="End of Term">End of Term</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-xl">
+              <select
+                value={selectedGrade}
+                onChange={(e) => setSelectedGrade(e.target.value as CBCGrade)}
+                className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer border-none focus:ring-0 [&>option]:text-slate-900"
+              >
+                {(activeGradesList.length > 0 ? activeGradesList : CBC_GRADES).map(g => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
       </div>
@@ -375,13 +406,20 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
                         </td>
                       );
                     })}
-                    <td className="p-3 text-right">
+                    <td className="p-3 text-right flex items-center justify-end gap-1">
                       <button
                         onClick={() => handleOpenReport(student)}
                         className="p-2 hover:bg-orange-50 dark:hover:bg-slate-700 text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 rounded-lg transition-colors group"
                         title="Open report builder"
                       >
                         <Palette size={16} className="group-hover:scale-110 transition-transform" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenReport(student, true)}
+                        className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors group"
+                        title="Save & Send SMS"
+                      >
+                        <Send size={16} className="group-hover:scale-110 transition-transform" />
                       </button>
                     </td>
                   </tr>

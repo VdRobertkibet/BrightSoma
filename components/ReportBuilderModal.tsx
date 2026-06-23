@@ -23,6 +23,7 @@ interface ReportBuilderModalProps {
   term?: string;
   year?: number;
   assessmentType?: string;
+  autoOpenSms?: boolean;
   onClose: () => void;
   onAssessmentChange: (studentId: string, la: string, level: string) => Promise<void>;
 }
@@ -80,6 +81,7 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
   term = 'Term 1',
   year = new Date().getFullYear(),
   assessmentType = 'End of Term',
+  autoOpenSms = false,
   onClose,
   onAssessmentChange
 }) => {
@@ -91,7 +93,7 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
   const [htRemark, setHtRemark] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [showSmsModal, setShowSmsModal] = useState(false);
+  const [showSmsModal, setShowSmsModal] = useState(autoOpenSms);
   const [smsCopied, setSmsCopied] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
@@ -104,6 +106,9 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
 
   const isSample = currentStudent.id === 'sample-123';
   const reportId = `${currentStudent.id}_${term.replace(/\s+/g, '')}_${year}`;
+
+  const parentPhone = currentStudent.parentInfo?.fatherPhone || currentStudent.parentInfo?.motherPhone || currentStudent.parentInfo?.guardianPhone || currentStudent.parentInfo?.emergencyContact || '';
+  const cleanPhone = parentPhone ? parentPhone.replace(/\s+/g, '').replace(/^0/, '254').replace(/[^\d+]/g, '') : '';
   const rawSubjects = isSample
     ? LOWER_PRIMARY_LEARNING_AREAS
     : (currentStudent.grade?.startsWith('Grade 7') || currentStudent.grade?.startsWith('Grade 8') || currentStudent.grade?.startsWith('Grade 9'))
@@ -278,12 +283,6 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
   };
 
   const smsText = buildSmsMessage();
-  const parentPhone = currentStudent.parentInfo?.fatherPhone
-    || currentStudent.parentInfo?.motherPhone
-    || currentStudent.parentInfo?.guardianPhone
-    || '';
-
-  const cleanPhone = parentPhone.replace(/\s+/g, '').replace(/^0/, '254').replace(/[^\d+]/g, '');
   const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(smsText)}`;
   const smsUrl = `sms:${parentPhone}?body=${encodeURIComponent(smsText)}`;
 
@@ -516,7 +515,7 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
           </div>
 
           {/* Student Info */}
-          <div className="grid grid-cols-4 gap-4 bg-slate-50/80 p-4 rounded-2xl border border-slate-100 mt-4">
+          <div className="grid grid-cols-5 gap-4 bg-slate-50/80 p-4 rounded-2xl border border-slate-100 mt-4">
             <div>
               <p className="text-[9px] font-black text-slate-400 tracking-wider mb-1">Learner Name</p>
               {isEditing && students && students.length > 0 && !isSample ? (
@@ -533,6 +532,7 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
             {[
               { label: 'Admission No', value: currentStudent.admissionNumber },
               { label: 'Grade Level', value: currentStudent.grade },
+              { label: 'Parent Phone', value: parentPhone || 'N/A' },
               { label: 'Term / Year', value: `${term}, ${year}` },
             ].map(({ label, value }) => (
               <div key={label}>
