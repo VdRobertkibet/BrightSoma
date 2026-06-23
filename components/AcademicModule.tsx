@@ -72,6 +72,15 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
   const [schoolProfile, setSchoolProfile] = useState<any>(null);
   const [showSendConfirmModal, setShowSendConfirmModal] = useState(false);
 
+  // Percentage popup state
+  const [pctPopup, setPctPopup] = useState<{ studentId: string; la: string; level: string; pnt: number } | null>(null);
+  const [pctValue, setPctValue] = useState<string>('');
+
+  // PNT auto-mapping: level label → points
+  const LEVEL_PNT_MAP: Record<string, number> = {
+    EE1: 8, EE2: 7, ME1: 6, ME2: 5, AE1: 4, AE2: 3, BE1: 2, BE2: 1
+  };
+
   // Only grades that have students enrolled
   const activeGradesList = useMemo(() => {
     const gradesWithStudents = [...new Set(students.map(s => s.grade as string))];
@@ -129,7 +138,7 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
     };
   }, []);
 
-  const handleAssessmentChange = async (studentId: string, learningArea: string, level: any) => {
+  const handleAssessmentChange = async (studentId: string, learningArea: string, level: any, extraFields?: { pnt?: number; percentage?: number | null }) => {
     const user = auth.currentUser;
     if (!user) return;
     let schoolId = user.uid;
@@ -147,8 +156,11 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
         // Optimistic local update
         setAssessments(prev => prev.filter(a => !(a.studentId === studentId && a.learningArea === learningArea)));
       } else {
+        const pnt = extraFields?.pnt ?? LEVEL_PNT_MAP[level] ?? null;
+        const percentage = extraFields?.percentage ?? existing?.percentage ?? null;
         const assessmentData = {
           schoolId, studentId, learningArea, level,
+          pnt, percentage,
           term: 'Term 1', year: 2026, strand: 'General',
           remarks: existing?.remarks || ''
         };
@@ -332,11 +344,19 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
                               return (
                                 <button
                                   key={sl.label}
-                                  onClick={() => handleAssessmentChange(
-                                    student.id, la,
-                                    isActive ? '' : sl.label
-                                  )}
-                                  title={isActive ? `Clear ${sl.label}` : `Set ${sl.label}`}
+                                  onClick={() => {
+                                    if (isActive) {
+                                      // Clear
+                                      handleAssessmentChange(student.id, la, '');
+                                    } else {
+                                      // Set level + auto PNT, then show percentage popup
+                                      const autoPnt = LEVEL_PNT_MAP[sl.label] || 0;
+                                      handleAssessmentChange(student.id, la, sl.label, { pnt: autoPnt });
+                                      setPctPopup({ studentId: student.id, la, level: sl.label, pnt: autoPnt });
+                                      setPctValue('');
+                                    }
+                                  }}
+                                  title={isActive ? `Clear ${sl.label}` : `Set ${sl.label} (${LEVEL_PNT_MAP[sl.label]} pts)`}
                                   className={`text-[8px] font-black px-1.5 py-0.5 rounded border transition-all duration-150 ${
                                     isActive
                                       ? sl.activeClass
@@ -348,6 +368,10 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
                               );
                             })}
                           </div>
+                          {/* Show assigned PNT under the buttons */}
+                          {assessment?.pnt != null && (
+                            <div className="mt-0.5 text-[7px] font-bold text-slate-400">{assessment.pnt} pts{assessment.percentage != null ? ` · ${assessment.percentage}%` : ''}</div>
+                          )}
                         </td>
                       );
                     })}
@@ -420,6 +444,78 @@ const AcademicModule: React.FC<AcademicModuleProps> = ({ activeTab: propActiveTa
                 <p className="text-sm">Add learners via the Learner Management module.</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* ── Percentage Popup ─────────────────────────────────────── */}
+      {pctPopup && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onClick={() => setPctPopup(null)} />
+          <div className="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 w-full max-w-xs animate-in zoom-in-95 fade-in duration-200">
+            <div className="text-center mb-4">
+              <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black mb-3 ${
+                pctPopup.level.startsWith('EE') ? 'bg-emerald-100 text-emerald-700' :
+                pctPopup.level.startsWith('ME') ? 'bg-blue-100 text-blue-700' :
+                pctPopup.level.startsWith('AE') ? 'bg-amber-100 text-amber-700' :
+                'bg-rose-100 text-rose-700'
+              }`}>
+                {pctPopup.level} · {pctPopup.pnt} PNT
+              </div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Enter Percentage</h4>
+              <p className="text-[10px] text-slate-500 mt-1">{pctPopup.la}</p>
+            </div>
+            <div className="relative mb-4">
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={pctValue}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '' || (parseInt(v) >= 0 && parseInt(v) <= 100)) setPctValue(v);
+                }}
+                placeholder="1 – 100"
+                autoFocus
+                className="w-full text-center text-2xl font-black text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-2xl py-4 px-6 outline-none focus:border-sky-500 transition-colors"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && pctValue) {
+                    const pct = parseInt(pctValue);
+                    if (pct >= 1 && pct <= 100) {
+                      handleAssessmentChange(pctPopup.studentId, pctPopup.la, pctPopup.level, { pnt: pctPopup.pnt, percentage: pct });
+                      toast.success(`${pctPopup.level} · ${pctPopup.pnt} PNT · ${pct}% saved`);
+                      setPctPopup(null);
+                    }
+                  }
+                }}
+              />
+              <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xl font-black text-slate-300">%</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  toast.success(`${pctPopup.level} · ${pctPopup.pnt} PNT saved (no %)`);
+                  setPctPopup(null);
+                }}
+                className="flex-1 py-3 text-xs font-bold text-slate-600 bg-slate-100 dark:bg-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                Skip %
+              </button>
+              <button
+                onClick={() => {
+                  const pct = parseInt(pctValue);
+                  if (pct >= 1 && pct <= 100) {
+                    handleAssessmentChange(pctPopup.studentId, pctPopup.la, pctPopup.level, { pnt: pctPopup.pnt, percentage: pct });
+                    toast.success(`${pctPopup.level} · ${pctPopup.pnt} PNT · ${pct}% saved`);
+                    setPctPopup(null);
+                  } else {
+                    toast.error('Enter a valid percentage (1-100)');
+                  }
+                }}
+                className="flex-1 py-3 text-xs font-bold text-white bg-sky-600 rounded-xl hover:bg-sky-700 transition-colors shadow-lg shadow-sky-500/20"
+              >
+                Save {pctValue ? `${pctValue}%` : '%'}
+              </button>
+            </div>
           </div>
         </div>
       )}

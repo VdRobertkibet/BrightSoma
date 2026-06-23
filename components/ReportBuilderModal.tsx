@@ -163,19 +163,25 @@ const ReportBuilderModal: React.FC<ReportBuilderModalProps> = ({
     }
   };
 
+  // PNT auto-mapping (same as AcademicModule)
+  const LEVEL_PNT_MAP: Record<string, number> = {
+    EE1: 8, EE2: 7, ME1: 6, ME2: 5, AE1: 4, AE2: 3, BE1: 2, BE2: 1
+  };
+
   // Toggle: clicking same level clears it; clicking different sets it
   const handleSetLevel = async (la: string, targetLevel: string) => {
     if (!isEditing) return;
     const existing = localAssessments.find(a => a.studentId === currentStudent.id && a.learningArea === la);
     const newLevel = existing?.level === targetLevel ? '' : targetLevel;
+    const autoPnt = newLevel ? (LEVEL_PNT_MAP[newLevel] ?? null) : null;
 
     setLocalAssessments(prev => {
       const updated = [...prev];
       const idx = updated.findIndex(a => a.studentId === currentStudent.id && a.learningArea === la);
       if (idx >= 0) {
-        updated[idx] = { ...updated[idx], level: newLevel };
+        updated[idx] = { ...updated[idx], level: newLevel, pnt: autoPnt ?? updated[idx].pnt };
       } else if (newLevel) {
-        updated.push({ studentId: currentStudent.id, learningArea: la, level: newLevel, percentage: null, pnt: null, remarks: '' });
+        updated.push({ studentId: currentStudent.id, learningArea: la, level: newLevel, percentage: null, pnt: autoPnt, remarks: '' });
       }
       return updated;
     });
